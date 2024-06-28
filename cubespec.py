@@ -10,6 +10,7 @@ import numpy as np
 import os 
 import glob
 import site
+from textwrap import dedent
 
 
 class CubeSpec:
@@ -18,36 +19,110 @@ class CubeSpec:
     operations with CRETA and CAFE.
     """
     
-    def __init__(self, creta_dir, param_path, param_file, data_path, full_set=True, redshift=None):
+    def __init__(self, creta_dir, param_path, param_file, creta_input_path, 
+                 redshift=None):
         
+        # Set and verify essential path variables
         self._creta_dir = os.path.abspath(creta_dir)
+        self.creta_input_path = os.path.join(self._creta_dir, 
+                                             creta_input_path)
         self._param_path = os.path.join(self._creta_dir, param_path)
-        self.param_path = os.path.join(self._param_path, param_file)
-        self.param_file = param_file
-        self.data_path = os.path.join(self._creta_dir, data_path)
-        self.c = None
-        if full_set:
-            self._verify_files()
-        self.output_path = os.path.join(self._creta_dir, f"creta_output/extractions/{self.target}")
         self._verify_paths()
+        
+        # Set and verify essential files
+        self.param_file = param_file
+        self._verify_files()
+        
+        # Set essential class fields
+        self.c = None
         self.redshift = redshift
+        
+        # Query for a redshift using NED if none was provided
         if self.redshift == None:
             self.find_redshift()
     
     
-    def _verify_files(self):
+    ### Housekeeping methods
+    
+    
+    def _verify_paths(self):
+        """ 
+        Checks if all inputted paths are present prior to extraction
+        or fitting and either generates such directories or raises an
+        error if a directory containing apriori data is missing.
+        """
         
-        self.data_files = glob.glob(os.path.join(self.data_path, "*.fits"))
+        if not os.path.exists(self._creta_dir):
+            error_string = f"""
+            Specified CRETA directory:
+            {self._creta_dir}
+            does not exist or is not correctly inputted!
+            """
+            raise NotADirectoryError(dedent(error_string))
+        if not os.path.exists(self.creta_input_path):
+            error_string = f"""
+            Specified CRETA input directory:
+            {self.creta_input_path}
+            does not exist or is not correctly inputted!
+            """
+            raise NotADirectoryError(dedent(error_string))
+        
+        if not os.path.exists(self._param_path):
+            error_string = f"""
+            Specified parameter file directory:
+            {self._param_path}
+            does not exist or is not correctly inputted!
+            """
+            raise NotADirectoryError(dedent(error_string))
+    
+    
+    def _verify_files(self):
+        """ 
+        Verifies that inputted data files are present for running this 
+        pipeline. This method assumes that only the Level3-reduced 
+        datacubes are present in the input data folder and that the 
+        parameter file files a certain naming structure.
+        """
+        
+        # List all data files
+        self.data_files = glob.glob(os.path.join(self.creta_input_path,
+                                                 "*.fits"))
         test_header = fits.getheader(self.data_files[0], ext=0)
         test_target = test_header["TARGPROP"]
+        
+        # Cross check all data files
         if len(self.data_files) == 12:
             for filename in self.data_files:
                 current_header = fits.getheader(filename, ext=0)
                 current_target = current_header["TARGPROP"]
                 if current_target != test_target:
                     raise ValueError("Datacubes are of different targets!")
+            self.ra = test_header["TARG_RA"]
+            self.dec = test_header["TARG_DEC"]
             self.target = test_target
             self.header = test_header
+            
+            # Verify existence of parameter file
+            param_file_path = os.path.join(self._param_path, self.param_file)
+            if not os.path.exists(param_file_path):
+                error_string = f"""
+                Specified parameter file:
+                {param_file_path}
+                does not exist or is not correctly inputted!
+                """
+                raise FileNotFoundError(dedent(error_string))
+            
+            # Verify existance of CRETA output path
+            creta_output_extension = f"creta_output/extractions/{self.target}"
+            self.creta_output_path = os.path.join(self._creta_dir, 
+                                              creta_output_extension)
+            if not os.path.exists(self.creta_output_path):
+                os.makedirs(self.creta_output_path)
+                method_string = f""" 
+                Specified CRETA output directory:
+                {self.creta_output_path}
+                did not exist and has been generated.
+                """
         else:
             if len(self.data_files) < 12:
                 raise FileNotFoundError("Datacubes missing!")
@@ -55,73 +130,115 @@ class CubeSpec:
                 raise FileExistsError("Extraneous files found!")
     
     
-    def _verify_paths(self):
-        """ 
-        Checks if all inputted paths are present prior to extraction 
-        or fitting and either generates such directories or raises an 
-        error if a directory containing apriori data is missing.
-        """
-        if not os.path.exists(self.output_path):
-            os.makedirs(self.output_path)
-    
-    
     def _initialize_CRETA(self):
         """ 
-        Verifies the existence of a parameter file and initializes an
-        instance of CRETA for this particular MIRI observation.
+        Initializes an instance of CRETA for this particular MIRI 
+        observation.
         """
-        pf = open(os.path.join(os.path.join(self._creta_dir, self._param_path), self.param_file), 'r')
-        print(pf.read())
-        pf.close()
         self.c = creta.creta(self._creta_dir)
+        return True
+    
+    
+    def rewrite_spec_csv(self):
+        """ 
+        This method rewrites the CRETA outputted csv into one that is
+        accepted by Thomas Lai's web app for viewing spectra.
+        """
+        import csv 
+        
+        method_string = f"""
+        Reformating spectrum csv file to be Thomas Lai compliant
+        """
+        print(dedent(method_string))
+        
+        original_csv = os.path.join(self.creta_output_path, 
+                                    f"{self.target}_SingleExt_r0.7as.csv")
+        spec_dict = {"w": [], "f": [], "f_unc": []}
+        readlines = False
+        stop_string = "Wave,Band_name,Flux_ap,Err_ap,R_ap,Flux_ap_st,"
+        
+        with open(original_csv, 'r') as csvfile:
+            for line in csvfile.readlines():
+                # Ignore up to this line
+                if stop_string in line:
+                    readlines = True 
+                    continue
+                # Record values
+                if readlines:
+                    vals = line.split(sep=",")
+                    spec_dict["w"].append(vals[0])
+                    spec_dict["f"].append(vals[5])
+                    spec_dict["f_unc"].append(vals[6])
+
+        new_csv = os.path.join(self.creta_output_path, 
+                               f"{self.target}_sum_sf_spec.csv")
+
+        with open(new_csv, 'w') as csvfile:
+            fieldnames = ["w", "f", "f_unc"]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for idx, _ in enumerate(spec_dict["w"]):
+                writer.writerow({"w": spec_dict["w"][idx], 
+                                 "f" : spec_dict["f"][idx], 
+                                 "f_unc" : spec_dict["f_unc"][idx]})
+
+        method_string = f"""
+        New csv file found at: {new_csv}
+        """
+        print(dedent(method_string))
+        return None
+    
+    
+    def find_redshift(self, query_rad=5):
+        """ 
+        Redshift autoquery routine using the NED astroquery interface.
+        
+        Arguments
+        ---------
+        query_rad : float
+            The size of the query circle in arcseconds.
+        """
+        
+        query_coord = coordinates.SkyCoord(ra=self.header["TARG_RA"],
+                                           dec=self.header["TARG_DEC"],
+                                           unit=(u.deg, u.deg))
+        result_table = Ned.query_region(query_coord, 
+                                        radius=query_rad*u.arcsec)
+        result_table = result_table[~np.isnan(result_table['Redshift'])]   
+        n_results = len(result_table)
+        
+        if n_results == 1:
+            self.redshift = result_table["Redshift"][0]
+            method_string = f"""
+            Autoquerying for redshift using header!
+            RA={self.ra}, DEC={self.dec}
+            Found {n_results} result(s): z={self.redshift}
+            """
+            print(dedent(method_string))
+            return self.redshift
+        if n_results == 0:
+            error_string = f"""
+            Redshift not found. Try increasing the query radius 
+            parameter to get a result.
+            """
+            raise ValueError(dedent(error_string))
+        if n_results > 1:
+            error_string = f"""
+            Multiple sources found within query radius. Try
+            decreasing with the query radius parameter to
+            reduce returned results.
+            """
+            print(result_table)
+            raise ValueError(dedent(error_string))
+    
+    
+    ### Analysis routines
     
     
     def perform_extraction(self):
         if self.c == None:
             self._initialize_CRETA()
         self.c.singleExtraction(parameter_file=True, parfile_path=self._param_path, parfile_name="/" + self.param_file, data_path=self.data_path, output_path=self.output_path + "/", output_filebase_name=f'{self.target}')
-    
-    
-    def rewrite_spec_csv(self):
-        """ 
-        This method rewrites the CRETA outputted csv into one that is 
-        accepted by Thomas Lai's web app for viewing spectra.
-        """
-        import csv 
-        
-        original_csv = os.path.join(self.output_path, f"{self.target}_SingleExt_r0.7as.csv")
-        spec_dict = {"w": [], "f": [], "f_unc": []}
-        readlines = False
-        with open(original_csv, 'r') as csvfile:
-            # Read lines until results appear
-            for line in csvfile.readlines():
-                print(line)
-                if "Wave,Band_name,Flux_ap,Err_ap,R_ap,Flux_ap_st,Err_ap_st,DQ" in line:
-                    readlines = True 
-                    continue
-                if readlines:
-                    vals = line.split(sep=",")
-                    print(vals)
-                    spec_dict["w"].append(vals[0])
-                    spec_dict["f"].append(vals[5])
-                    spec_dict["f_unc"].append(vals[6])
-    
-        new_csv = os.path.join(self.output_path, f"{self.target}_sum_sf_spec.csv")
-        with open(new_csv, 'w') as csvfile:
-            fieldnames = ["w", "f", "f_unc"]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for idx, _ in enumerate(spec_dict["w"]):
-                writer.writerow({"w": spec_dict["w"][idx], "f" : spec_dict["f"][idx], "f_unc" : spec_dict["f_unc"][idx]})
-    
-    
-    def find_redshift(self):
-        print("Autoquerying for redshift using header values.")
-        print(f"RA: {self.header['TARG_RA']}, DEC: {self.header['TARG_DEC']}")
-        co = coordinates.SkyCoord(ra=self.header["TARG_RA"], dec=self.header["TARG_DEC"], unit=(u.deg, u.deg))
-        result_table = Ned.query_region(co, radius=2 * u.arcsec)
-        print(f"Found {len(result_table[~np.isnan(result_table['Redshift'])])} result: z = {result_table['Redshift'][0]}")
-        self.redshift = result_table["Redshift"]
     
     
     def perform_fit(self):
