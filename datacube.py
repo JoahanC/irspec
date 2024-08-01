@@ -28,6 +28,9 @@ class Datacube:
         self._read_data()
     
     
+    ### Housekeeping Methods
+    
+    
     def _read_headers(self):
         """ 
         Runs a routine which reads relevant header information for 
@@ -85,6 +88,7 @@ class Datacube:
         else:
             raise TypeError(f"Provided index must be an int! Recieved {type(index)} instead.")
     
+    
     def wavelength_to_index(self, wavelength):
         """ 
         Returns the closest index corresponding to a given wavelength 
@@ -108,3 +112,10 @@ class Datacube:
                 raise ValueError(f"Provided wavelength is out of bounds! Recieved {wavelength} while data ranges from {self.reference_wv} to {self.reference_wv + self.science_data.shape[0] * self.delta_wv}.")
         else:
             raise TypeError(f"Provided wavelength must be an Quantity! Recieved {type(wavelength)} instead.")
+    
+    
+    ### Visualization Methods
+    
+    
+    
+
