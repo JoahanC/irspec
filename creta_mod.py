@@ -590,6 +590,7 @@ class creta:
             
             #self.plotStoreApertures(realData_all, background, user_r_ap)
             print('Total execution time of single region extraction: %s seconds' % str(time.time() - start_time))
+            return realData_all
 
 
         

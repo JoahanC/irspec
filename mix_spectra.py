@@ -14,6 +14,7 @@ from cubespec import CubeSpec
 plt.rcParams["font.family"] = "sans-serif"
 
 spec_obj = CubeSpec("./../", "param_files", "IR23128-N_0_single_param.txt", "input_data/IR23128-N/", redshift=0.044601, fit_dirname="IR23128N_SB0", mode="SB")
+north_cubes = spec_obj.perform_single_extraction_custom()
 af = spec_obj.open_asdf()
 wave = np.asarray(af.tree['cafefit']['obsspec']['wave'])
 flux = np.asarray(af['cafefit']['obsspec']['flux'])
@@ -50,6 +51,7 @@ spec_dict[name4] = {'wave':wave, 'flux':flux, 'flux_unc':flux_unc}
 coords[name4] = (spec_obj.param_dict["user_ra"], spec_obj.param_dict["user_dec"], spec_obj.param_dict["user_r_ap"])
 
 spec_obj = CubeSpec("./../", "param_files", "IR23128-S_6_single_param.txt", "input_data/IR23128-S/", redshift=0.044601, fit_dirname="IR23128S_AGN6", mode="AGN")
+south_cubes = spec_obj.perform_single_extraction_custom()
 af = spec_obj.open_asdf()
 wave = np.asarray(af.tree['cafefit']['obsspec']['wave'])
 flux = np.asarray(af['cafefit']['obsspec']['flux'])
@@ -79,45 +81,51 @@ fig = plt.figure()
 fig.set_size_inches(12, 6)
 gs1 = GridSpec(2,2)
 gs1.update(left=-0.25, right=0.50, bottom=0, top=1, wspace=0.00,hspace=0.02)
-names = ["IR23128Na", "IR23128Nb", "IR23128Nc", "IR23128N", "IR23128S"]
+names = ["Na r0.3", "Nb r0.3", "Nc r0.3", "N r1.8", "S r1.7"]
 linestyles = ["solid", "dashed", "dotted", "dashdot", "solid", "dashed", "dotted", "dashdot"]
 linestyles = ["solid", "solid", "solid", "solid", "solid", "solid", "solid", "solid"]
 
-files = [hst_file1]
-wfc_pixscale = 0.05
-for filename in files:
-    hdu = fits.open(filename, ext=1)[1]
-    wcs = WCS(hdu.header)
-    ax1 = plt.subplot(gs1[0, :], projection=wcs)
-    z = ZScaleInterval()
-    z1, z2 = z.get_limits(hdu.data)
-    #ax = plt.subplot()
-    
-    ax1.set_xlim(2000, 2300)
-    ax1.set_ylim(2300, 2600)
-    ax1.imshow(hdu.data, norm=LogNorm(0.01, 5), cmap="bone_r", origin="lower")
-    
-    for idx, name in enumerate(coords):
-        coord_obj = SkyCoord(coords[name][0], coords[name][1], unit="deg")
-        x_pix, y_pix = skycoord_to_pixel(coord_obj, wcs)
-        rad = coords[name][2] / wfc_pixscale
-        aperture = plt.Circle((x_pix, y_pix), rad, color=colors[idx], label=names[idx], fill=False)
-        ax1.add_patch(aperture)
-    
-    
-    #rad = sourthern_nuc_rad / wfc_pixscale
-    #x_pix, y_pix = skycoord_to_pixel(sourthern_skycoord, wcs)
-    #aperture = plt.Circle((x_pix, y_pix), rad, color="yellow", label="IR23128S", fill=False)
-    #ax1.add_patch(aperture)
-    
-    #ax1.set_title()
-    x_text_pos = 0.05 * (2300 - 2000) + 2000
-    y_text_pos = 0.95 * (2600 - 2300) + 2300
-    ax1.tick_params(axis='x', labelsize=0)
-    ax1.tick_params(axis='y', labelsize=0)
-    ax1.text(2005, 2570, "HST F435W", fontsize=20, color="black")
-    ax1.set_xlabel("RA (J2000)", fontsize=0)
-    ax1.set_ylabel("DEC (J2000)", fontsize=0)
+#files = [hst_file1]
+#wfc_pixscale = 0.05
+
+# NORTH CUBE
+north_data = np.nanmedian(north_cubes[0].cube_before, axis=0)
+#hdu = fits.open(filename, ext=1)[1]
+wcs = north_cubes[0].wcs.celestial #WCS(hdu.header)
+ax1 = plt.subplot(gs1[0, :], projection=wcs)
+z = ZScaleInterval()
+
+z1, z2 = z.get_limits(north_data)
+print(z1, z2)
+#ax = plt.subplot()
+
+#ax1.set_xlim(2000, 2300)
+#ax1.set_ylim(2300, 2600)
+ax1.imshow(north_data, norm=LogNorm(50, 300), cmap="plasma", origin="lower")
+
+
+miri_pixscale = 0.14
+for idx, name in enumerate(coords):
+    coord_obj = SkyCoord(coords[name][0], coords[name][1], unit="deg")
+    x_pix, y_pix = skycoord_to_pixel(coord_obj, wcs)
+    rad = coords[name][2] / miri_pixscale
+    aperture = plt.Circle((x_pix, y_pix), rad, color=colors[idx], label=names[idx], fill=False)
+    ax1.add_patch(aperture)
+
+
+#rad = sourthern_nuc_rad / wfc_pixscale
+#x_pix, y_pix = skycoord_to_pixel(sourthern_skycoord, wcs)
+#aperture = plt.Circle((x_pix, y_pix), rad, color="yellow", label="IR23128S", fill=False)
+#ax1.add_patch(aperture)
+
+#ax1.set_title()
+#x_text_pos = 0.05 * (2300 - 2000) + 2000
+#y_text_pos = 0.95 * (2600 - 2300) + 2300
+ax1.tick_params(axis='x', labelsize=0)
+ax1.tick_params(axis='y', labelsize=0)
+ax1.text(0, 44, "CH1S North", fontsize=20, color="white")
+ax1.set_xlabel("RA (J2000)", fontsize=0)
+ax1.set_ylabel("DEC (J2000)", fontsize=0)
     #plt.grid(True)
 
 
@@ -127,44 +135,46 @@ miri_names = ["r0.5", "r0.75", "r1.0", "r1.25", "r1.5", "r1.7"]
 miri_xoffsets = [4, 4, 0, 5, 7, 9, 11, 3]
 miri_yoffsets = [-1, 0, 4, 5, 7, 9, 11, 3]
 
-miri_pixscale = 0.11 #asec per pix#
-files = [miri_file1]
-for filename in files:
-    hdu = fits.open(filename, ext=1)[1]
-    wcs = WCS(hdu.header)
-    ax2 = plt.subplot(gs1[1, :], projection=wcs)
-    z = ZScaleInterval()
-    z1, z2 = z.get_limits(hdu.data)
-    #ax = plt.subplot()
-    #ax.set_xlim(1500, 2800)
-    #ax.set_ylim(2000, 3000)
-    z1 = 2
-    z2 = 5000
-    ax2.imshow(hdu.data, norm=LogNorm(z1, z2), origin='lower', cmap="bone_r")
-    ax2.tick_params(axis='x', labelsize=0)
-    ax2.tick_params(axis='y', labelsize=0)
-    ax2.set_xlim(225, 325)
-    ax2.set_ylim(225, 325)
-    x_text_pos = 0.03 * (325 - 225) + 225
-    y_text_pos = 0.90 * (325 - 225) + 225
-    ax2.text(x_text_pos, y_text_pos, "JWST MIRI", fontsize=20, color="black")
-    for idx, name in enumerate(coords):
-        coord_obj = SkyCoord(coords[name][0], coords[name][1], unit="deg")
-        x_pix, y_pix = skycoord_to_pixel(coord_obj, wcs)
-        rad = coords[name][2] / miri_pixscale
-        aperture = plt.Circle((x_pix, y_pix), rad, ls=linestyles[idx], color=colors[idx], label=names[idx], fill=False)
-        ax2.add_patch(aperture)
-        #ax2.text(x=x_pix + miri_xoffsets[idx],y=y_pix+miri_yoffsets[idx],s=miri_names[idx], color=colors[idx])
-    
-    #rad = sourthern_nuc_rad / miri_pixscale
-    #x_pix, y_pix = skycoord_to_pixel(sourthern_skycoord, wcs)
-    #aperture = plt.Circle((x_pix, y_pix), rad, color="yellow", label="IR23128S", fill=False)
-    #ax2.add_patch(aperture)
-    #ax2.text(x_pix + 10, y_pix + 10, s=miri_names[3], color="yellow")
-    
-    ax2.set_xlabel("RA (J2000)", fontsize=0)
-    ax2.set_ylabel("DEC (J2000)", fontsize=0)
-    #plt.grid(True)
+miri_pixscale = 0.273 #asec per pix#
+#files = [miri_file1]
+
+# SOUTH CUBE
+south_data = np.nanmedian(south_cubes[-1].cube_before, axis=0)
+#hdu = fits.open(filename, ext=1)[1]
+wcs = south_cubes[-1].wcs.celestial #WCS(hdu.header)
+ax2 = plt.subplot(gs1[1, :], projection=wcs)
+z = ZScaleInterval()
+z1, z2 = z.get_limits(south_data)
+#ax = plt.subplot()
+#ax.set_xlim(1500, 2800)
+#ax.set_ylim(2000, 3000)
+#z1 = 2
+#z2 = 5000
+z1, z2 = z.get_limits(south_data)
+ax2.imshow(south_data, norm=LogNorm(), origin='lower', cmap="plasma")
+ax2.tick_params(axis='x', labelsize=0)
+ax2.tick_params(axis='y', labelsize=0)
+x_text_pos = 0 
+y_text_pos = 0 
+ax2.text(x_text_pos, y_text_pos, "CH4L South", fontsize=20, color="white")
+
+for idx, name in enumerate(coords):
+    coord_obj = SkyCoord(coords[name][0], coords[name][1], unit="deg")
+    x_pix, y_pix = skycoord_to_pixel(coord_obj, wcs)
+    rad = coords[name][2] / miri_pixscale
+    aperture = plt.Circle((x_pix, y_pix), rad, ls=linestyles[idx], color=colors[idx], label=names[idx], fill=False)
+    ax2.add_patch(aperture)
+    #ax2.text(x=x_pix + miri_xoffsets[idx],y=y_pix+miri_yoffsets[idx],s=miri_names[idx], color=colors[idx])
+
+#rad = sourthern_nuc_rad / miri_pixscale
+#x_pix, y_pix = skycoord_to_pixel(sourthern_skycoord, wcs)
+#aperture = plt.Circle((x_pix, y_pix), rad, color="yellow", label="IR23128S", fill=False)
+#ax2.add_patch(aperture)
+#ax2.text(x_pix + 10, y_pix + 10, s=miri_names[3], color="yellow")
+
+ax2.set_xlabel("RA (J2000)", fontsize=0)
+ax2.set_ylabel("DEC (J2000)", fontsize=0)
+#plt.grid(True)
 
 #ax3 = plt.subplot(gs1[2, :],sharex=ax1)
 
@@ -191,4 +201,4 @@ ax4.legend(loc='best')
 #ax4.set_aspect('equal', adjustable='box') 
 plt.setp(ax1.get_xticklabels(), visible=False)
 plt.setp(ax2.get_xticklabels(), visible=False)
-plt.savefig("ir23128_spectra.pdf", dpi=1000)
+plt.savefig("ir23128_spectra5.pdf", dpi=1000)

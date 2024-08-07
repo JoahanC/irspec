@@ -142,7 +142,7 @@ class CubeSpec:
                 if key == "ann_width":
                     value = float(value)
                 self.param_dict[key] = value
-        print(self.param_dict)
+        #print(self.param_dict)
         
         # Cross check all data files
         if len(self.data_files) == 12:
@@ -320,6 +320,7 @@ class CubeSpec:
         CAFE fitting session.
         """
         asdf_fn = os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as/{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as_cafefit.asdf")
+        print("ASDF", asdf_fn)
         af = asdf.open(asdf_fn)
         return af
     
@@ -419,13 +420,14 @@ class CubeSpec:
             self._initialize_CRETA_mod()
         if self.param_dict["type"] != "single":
             raise ValueError("Parameter file is not configured for single extraction.")
-        self.c_mod.singleExtraction(parameter_file=True, 
+        realData = self.c_mod.singleExtraction(parameter_file=True, 
                                 parfile_path=self._param_path, 
                                 parfile_name="/" + self.param_file, 
                                 data_path=self.creta_input_path, 
                                 output_path=self.creta_output_path + "/",
                                 output_filebase_name=f'{self.target}',
                                 ignore_DQ=True)
+        return realData
     
     
     def perform_grid_extraction(self):
@@ -482,6 +484,12 @@ class CubeSpec:
         #s.plot_spec_fit(inppar_fn, optpar_fn)
         #self.cafeplot()
     
+    
+    def return_lines(self):
+        return os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as/{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as_linetable.ecsv")
+    
+    def return_pah(self):
+        return os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as/{self.target}_SingleExt_r{str(self.asec).replace('.', '')}as_pahtable.ecsv")
     
     def run_spectool(self):
         """ 
@@ -644,7 +652,7 @@ class CubeSpec:
         for i in range(len(gauss[0])):
             if pahext is None:
                 pahext = np.ones(wavemod.shape)
-            print(gauss[0])
+            #print(gauss[0])
             lflux = gauss_prof(wavemod, [[gauss[0][i]], [gauss[1][i]], [gauss[2][i]]], ext=pahext)
             
             #ax1.plot(wavemod, lflux+fCont, color='#0A31FF', label='_nolegend_', alpha=alpha, linewidth=0.4)
@@ -855,10 +863,10 @@ class CubeSpec:
         ax1.legend(loc='lower right')
         ax1.tick_params(direction='in', which='both', length=6, width=1, top=True)
         ax1.tick_params(axis='x', labelsize=0)
-        ax1.tick_params(axis='y', labelsize=12)
+        ax1.tick_params(axis='y', labelsize=18)
         ax1.set_ylim(bottom=0.1*np.nanmin(min_flux), top=2.*np.nanmax(max_flux))
         ax1.set_xlim(np.nanmin(wave)/1.2, 1.2*np.nanmax(wave))
-        ax1.set_ylabel(r'$f_\nu$ (Jy)', fontsize=14)
+        ax1.set_ylabel(r'$f_\nu$ (Jy)', fontsize=18)
         #ax1.set_xscale('log')
         ax1.set_yscale('log')
 
@@ -872,23 +880,27 @@ class CubeSpec:
         ax2.plot(wave, res, color='white', linewidth=1)
         ax2.axhline(0., color='white', linestyle='--')
         ax2.tick_params(direction='in', which='both', length=6, width=1,  right=True, top=True)
-        ax2.tick_params(axis='x', labelsize=12)
-        ax2.tick_params(axis='y', labelsize=12)
+        ax2.tick_params(axis='x', labelsize=18)
+        ax2.tick_params(axis='y', labelsize=14)
         ax2.set_ylim(-4*std, 4*std)
-        ax2.set_xlabel(r'$\lambda_{\rm{rest}}$ $(\mu \rm{m})$', fontsize=14)
+        ax2.set_xlabel(r'$\lambda_{\rm{rest}}$ $(\mu \rm{m})$', fontsize=18)
         ax2.set_ylabel('Residuals (%)', fontsize=14)
         ax2.set_xlim(lamb_low, lamb_high)
         #ax1.set_zorder(100)
 
         #ax1.set_title('CAFE Spectrum Decomposition', fontsize=16)
-        ax1.set_title(f"{self.target}", loc="right", fontsize=16)
+        ax1.set_title(f"{self.target}", loc="right", fontsize=20)
         plt.subplots_adjust(hspace=0)
+        
+        #ax1.set_xlim(12.5, 13.1)
+        #ax1.set_ylim(0.18, 2.6)
         
         if save_name is False:
             plt.show()
             return (fig, ax1, ax2)
         else:
             plot_path = os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{self.asec}as/{self.target}_SingleExt_r{self.asec}as_linefit.pdf")
+            #plot_path = "neiii_unrectified.pdf"
             fig.savefig(plot_path, dpi=1000, format='pdf', bbox_inches='tight')
             plt.close()
     

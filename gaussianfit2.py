@@ -1,7 +1,10 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from cubespec import CubeSpec
 from scipy.optimize import curve_fit
+import matplotlib.ticker as ticker
+
 
 
 ### Define fitting functions
@@ -67,7 +70,7 @@ def fit_cutout(wavelength, flux, line_center):
 spec_obj = CubeSpec("./../", "param_files", "IR23128-S_0_single_param.txt", "input_data/IR23128-S/", redshift=0.044601, fit_dirname="IR23128S_AGN0", mode="AGN")
 data = spec_obj.recall_data()
 
-line_center = 10.51
+line_center = 12.8
 x_low = line_center - 0.4
 x_high = line_center + 0.4
 
@@ -88,24 +91,32 @@ popt, pcov = fit_cutout(data_cutout["wave"], data_cutout["flux"], line_center)
 residuals = (multi_gaussian(data_cutout["wave"], *popt) - data_cutout["flux"]) / data_cutout["flux"] * 100
 
 plt.style.use('dark_background')
-fig, ((ax1), (ax2)) = plt.subplots(nrows=2,ncols=1)
+fig, ((ax1), (ax2)) = plt.subplots(nrows=2,ncols=1, sharex=True, height_ratios=[3,1])
+fig.set_size_inches(8, 8)
 fig.subplots_adjust(hspace=0.0)
 ax1.scatter(data_cutout["wave"], data_cutout["flux"], s=5)
 cont = continuum(data_cutout["wave"], popt[9], popt[10])
-ax1.plot(data_cutout["wave"], multi_gaussian(data_cutout["wave"], *popt), 'r--', linewidth=2, label='Fit')
-ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[0], popt[1], popt[2]) + cont, 'b--', linewidth=2, label='Gaussian1')
-ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[3], popt[4], popt[5]) + cont, 'y--', linewidth=2, label='Gaussian2')
-ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[6], popt[7], popt[8]) + cont, 'g--', linewidth=2, label='Gaussian3')
-ax1.plot(data_cutout["wave"], continuum(data_cutout["wave"], popt[9], popt[10]), 'w--', linewidth=2, label='Continuum')
+ax1.plot(data_cutout["wave"], multi_gaussian(data_cutout["wave"], *popt), c='red', ls="solid", linewidth=1, label='Fit')
+ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[0], popt[1], popt[2]) + cont, c='blue', ls="dashed", linewidth=1, label='Gaussian1')
+ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[3], popt[4], popt[5]) + cont, c='yellow', ls="dotted", linewidth=1, label='Gaussian2')
+ax1.plot(data_cutout["wave"], gaussian(data_cutout["wave"], popt[6], popt[7], popt[8]) + cont, c='pink', ls="dashdot", linewidth=1, label='Continuum1')
+ax1.plot(data_cutout["wave"], continuum(data_cutout["wave"], popt[9], popt[10]), 'w--', linewidth=2, label='Continuum2')
 ax2.plot(data_cutout["wave"], residuals)
 #ax.set_xscale("log")
-ax2.set_xlabel(r"$\lambda$ (microns)")
-ax1.set_ylabel(r"$f_{\nu} (Jy)$")
-ax2.set_ylabel("Residuals (%)")
+ax2.set_xlabel(r"$\lambda$ (microns)", fontsize=18)
+ax1.set_ylabel(r"$f_{\nu} (Jy)$", fontsize=18)
+ax2.set_ylabel("Residuals (%)", fontsize=18)
+ax2.set_xlim(12.7, 12.92)
+ax2.tick_params(axis='x', labelsize=18)
+ax1.tick_params(axis='y', labelsize=18)
+ax2.tick_params(axis='y', labelsize=16)
 std = np.nanstd(residuals) 
 ax2.set_ylim(-4*std, 4*std)
 ax1.set_yscale("log")
 ax1.set_ylim(np.min(data_cutout["flux"]) * 0.8, np.max(data_cutout["flux"]) * 1.2)
+ax1.xaxis.set_major_locator(ticker.MultipleLocator(0.1))
+ax1.xaxis.set_minor_locator(ticker.MultipleLocator(0.01))
 #ax2.set_yscale("log")
 ax1.legend()
-plt.show()
+#plt.show()
+plt.savefig("neii_rectified.pdf", dpi=1000, bbox_inches="tight")
