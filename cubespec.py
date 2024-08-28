@@ -7,16 +7,22 @@ import numbers
 import numpy as np
 import astropy.io.fits as fits
 import astropy.units as u
+import astropy.constants as const
 from astropy import coordinates
 from astroquery.ipac.ned import Ned
 from matplotlib import ticker
 from matplotlib.ticker import ScalarFormatter
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
 
 import CRETA.creta as creta
 import creta_mod 
 
 import CAFE.cafe as cafe
+
+from localfit import LocalFit
+from plotparams import PlotParams
 
 import asdf
 from asdf import AsdfFile
@@ -435,11 +441,19 @@ class CubeSpec:
         This method runs the CRETA grid extraction tool on this MIRI
         observation. Assumes an existing grid parameter file exists.
         """
-        if self.c == None:
-            self._initialize_CRETA()
+        if self.c_mod == None:
+            self._initialize_CRETA_mod()
         if self.param_dict["type"] != "grid":
             raise ValueError("Parameter file is not configured for single extraction.")
-        pass
+        self.c_mod.gridExtraction(data_path=self.creta_input_path, 
+                              parfile_path=self._param_path, 
+                              parfile_name="/" + self.param_file, 
+                              output_path = self.creta_output_path + "/",
+                              output_filebase_name=f'{self.target}',
+                              ignore_DQ=True)
+    
+    
+    
     
     
     def perform_fit(self):
@@ -568,7 +582,16 @@ class CubeSpec:
         #pass
     
     
-    
+    def local_fit_flux(self, wave_range, wave_c, name, npoly, ngauss):
+        """ 
+        This routine generates a local flux estimate for a specified line.
+        """
+        data = self.recall_data()
+        figob = LocalFit(data["wave"], data["flux"], wave_range, wave_c, name)
+        figob.main_fit(npoly, ngauss)
+        path = os.path.join(self.cafe_output_path, f"refit_{name}_{npoly}_{ngauss}.pdf")
+        figob.render_fit(path)
+        return figob.line_strength
     
     
     def cafeplot(self, spec, phot, comps, gauss, drude, vgrad={'VGRAD':0.}, plot_drude=True, pahext=None, save_name=False, params=None):
@@ -606,10 +629,10 @@ class CubeSpec:
         wavemod = comps['wave']
         
         fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios':[3,1]}, figsize=(8,8), sharex=True)
-        ax1.scatter(spec['wave'], spec['flux'], color="white", s=2, edgecolor='white', facecolor='none', label='Spec Data', alpha=0.9, zorder=0)
+        ax1.scatter(spec['wave'], spec['flux'], color="white", s=2, edgecolor='white', facecolor='none', label='Spec Data', alpha=0.6, zorder=0)
         #ax1.errorbar(spec['wave'], spec['flux'], yerr=spec['flux_unc'], fmt='none', color='white', alpha=0.1)
         if phot is not None:
-            ax1.scatter(phot['wave'], phot['flux'], marker='x', s=18, edgecolor='none', facecolor='white', label='Phot Data', alpha=0.9)
+            ax1.scatter(phot['wave'], phot['flux'], marker='x', s=18, edgecolor='none', facecolor='black', label='Phot Data', alpha=0.9)
             ax1.errorbar(phot['wave'], phot['flux'], xerr=phot['width']/2, yerr=phot['flux_unc'], fmt='none', color='white', alpha=0.1)
             wave = np.concatenate((spec['wave'], phot['wave']))
             flux = np.concatenate((spec['flux'], phot['flux']))
@@ -619,8 +642,8 @@ class CubeSpec:
             wave = spec['wave']
             flux = spec['flux']
                                 
-        ax1.plot(wavemod, fCont, color='white', label='Continuum Fit', linestyle="dashed", zorder=4, alpha=0.8)
-        ax1.plot(wavemod, fCont+fLin+fPAH, color='cyan', label='Total Fit', linewidth=1.5, zorder=5, alpha=0.85) # green
+        ax1.plot(wavemod, fCont, color='white', label='Continuum Fit', linestyle="dashed", zorder=4, lw=2, alpha=0.8)
+        ax1.plot(wavemod, fCont+fLin+fPAH, color='cyan', label='Total Fit', linewidth=1.5, zorder=5, alpha=1) # green"""
 
         CLD_TMP = '' if params == None else r' ('+"{:.0f}".format(params['CLD_TMP'].value)+'$\,$K'+')'
         COO_TMP = '' if params == None else r' ('+"{:.0f}".format(params['COO_TMP'].value)+'$\,$K'+')'
@@ -628,39 +651,39 @@ class CubeSpec:
         HOT_TMP = '' if params == None else r' ('+"{:.0f}".format(params['HOT_TMP'].value)+'$\,$K'+')'
             
         alpha = 1
-        lw = 1
+        lw = 2
         if np.any(fCir > 0):
             ax1.plot(wavemod, fCir, label='Cirrus', c='tab:cyan', alpha=alpha, linewidth=lw)
         if np.sum(fCld > 0):
-            ax1.plot(wavemod, fCld, label='Cold'+CLD_TMP, c='tab:blue', alpha=alpha, linewidth=lw)
+            ax1.plot(wavemod, fCld, label='Cold'+CLD_TMP, c='tab:blue', alpha=alpha, linewidth=lw, linestyle="dashed")
         if np.any(fCoo > 0):
-            ax1.plot(wavemod, fCoo, label='Cool'+COO_TMP, c='#23FF00', alpha=alpha, linewidth=lw) # teal
+            ax1.plot(wavemod, fCoo, label='Cool'+COO_TMP, c='green', alpha=alpha, linewidth=lw, linestyle="dotted") # teal
         if np.any(fWrm > 0):
-            ax1.plot(wavemod, fWrm, label='Warm'+WRM_TMP, c='tab:orange', alpha=alpha, linewidth=lw)
+            ax1.plot(wavemod, fWrm, label='Warm'+WRM_TMP, c='tab:orange', alpha=alpha, linewidth=lw, linestyle="dashdot")
         if np.any(fHot > 0):
-            ax1.plot(wavemod, fHot, label='Hot'+HOT_TMP, c='#FF0000', alpha=alpha, linewidth=lw) # gold
+            ax1.plot(wavemod, fHot, label='Hot'+HOT_TMP, c='brown', alpha=alpha, linewidth=lw, linestyle="dashed") # gold
         if np.any(fStb > 0): 
-            ax1.plot(wavemod, fStb, label='Starburst', c='#FFEC00', alpha=alpha, linewidth=lw)
+            ax1.plot(wavemod, fStb, label='Starburst', c='#FFEC00', alpha=alpha, linewidth=lw, linestyle="dotted")
         if np.any(fStr > 0):
             ax1.plot(wavemod, fStr, label='Stellar', c='#FF4500', alpha=alpha, linewidth=lw) # orangered
         #if np.any(fDsk > 0):
         #    ax1.plot(wavemod, fDsk, label='AGN', c='tab:red', alpha=alpha, linewidth=lw)
         if np.any(fLin > 0):
-            ax1.plot(wavemod, fCont+fLin, label='Lines', c='orange', alpha=alpha, linewidth=lw) # blue ##1e6091
+            ax1.plot(wavemod, fCont+fLin, label='Lines', c='lime', alpha=alpha, linewidth=lw, zorder=0) # blue ##1e6091
 
-        # Plot lines
+        """# Plot lines
         for i in range(len(gauss[0])):
             if pahext is None:
                 pahext = np.ones(wavemod.shape)
             #print(gauss[0])
             lflux = gauss_prof(wavemod, [[gauss[0][i]], [gauss[1][i]], [gauss[2][i]]], ext=pahext)
             
-            #ax1.plot(wavemod, lflux+fCont, color='#0A31FF', label='_nolegend_', alpha=alpha, linewidth=0.4)
-            #if i == 0:
-            #    ax1.plot(wavemod, lflux+fCont, color='#1e6091', label='Lines', alpha=alpha, linewidth=0.4)
+            ax1.plot(wavemod, lflux+fCont, color='lime', label='_nolegend_', alpha=alpha, linewidth=1)
+            if i == 0:
+                ax1.plot(wavemod, lflux+fCont, color='lime', label='Lines', alpha=alpha, linewidth=1)
             #else:
-            #    ax1.plot(wavemod, lflux+fCont, color='#1e6091', label='_nolegend_', alpha=alpha, linewidth=0.4)
-        
+                ax1.plot(wavemod, lflux+fCont, color='lime', label='_nolegend_', alpha=alpha, linewidth=1)
+        """
         # Plot PAH features
         if plot_drude is True:
             for i in range(len(drude[0])):
@@ -669,11 +692,11 @@ class CubeSpec:
                 dflux = drude_prof(wavemod, [[drude[0][i]], [drude[1][i]], [drude[2][i]]], ext=pahext)
 
                 if i == 0:
-                    ax1.plot(wavemod, dflux+fCont, color='#BC4187', label='PAHs', alpha=alpha, linewidth=1)
+                    ax1.plot(wavemod, dflux+fCont, color='fuchsia', label='PAHs', alpha=alpha, linewidth=1)
                 else:
-                    ax1.plot(wavemod, dflux+fCont, color='#BC4187', label='_nolegend_', alpha=alpha, linewidth=1)
+                    ax1.plot(wavemod, dflux+fCont, color='fuchsia', label='_nolegend_', alpha=alpha, linewidth=1)
         elif np.any(fPAH > 0):
-            ax1.plot(wavemod, fCont+fPAH, label='PAHs', color='#BC4187', alpha=alpha)
+            ax1.plot(wavemod, fCont+fPAH, label='PAHs', color='fuchsia', alpha=alpha)
 
         #ax11 = ax1.twinx()
         #ax11.plot(wavemod, pahext, linestyle='dashed', color='pink', alpha=1, linewidth=1, label="Attenuation")
@@ -685,12 +708,13 @@ class CubeSpec:
         min_flux = np.nanmin(spec['flux'][np.r_[0:5,-5:len(spec['flux'])]])
         max_flux = np.nanmax(spec['flux'][np.r_[0:5,-5:len(spec['flux'])]])
 
+        
         ax1.legend(loc='lower right')
         ax1.tick_params(direction='in', which='both', length=6, width=1, top=True)
         ax1.tick_params(axis='x', labelsize=0)
         ax1.tick_params(axis='y', labelsize=18)
         ax1.set_ylim(bottom=0.1*np.nanmin(min_flux), top=2.*np.nanmax(max_flux))
-        #ax1.set_xlim(left=2.5, right=36)
+        ax1.set_xlim(left=4.7, right=15)
         ax1.set_xlim(np.nanmin(wave)/1.2, 1.2*np.nanmax(wave))
         ax1.set_ylabel(r'$f_\nu$ (Jy)', fontsize=20)
         ax1.set_xscale('log')
@@ -706,7 +730,7 @@ class CubeSpec:
         std = np.nanstd(res)
         ax2.plot(wave, res, color='white', linewidth=1)
         #ax2.plot(wave, (spec['flux']-interpMod)/func, color='k')
-        ax2.axhline(0., color='white', linestyle='--')
+        ax2.axhline(0., color='black', linestyle='--')
         ax2.tick_params(direction='in', which='both', length=6, width=1,  right=True, top=True)
         ax2.tick_params(axis='x', labelsize=16)
         ax2.tick_params(axis='y', labelsize=16)
@@ -716,21 +740,22 @@ class CubeSpec:
         #ax2.set_ylabel(r'$f^{data}_\nu - f^{tot}_\nu$ $(\sigma)$', fontsize=14)
         ax2.set_ylabel('Residuals (%)', fontsize=20)
         #ax1.set_zorder(100)
-        #ax1.set_xlim(7.625, 7.85)
-        #ax1.set_ylim(0.092, 0.16)
+        ax1.set_xlim(4.7, 15)
+        ax1.set_ylim(0.005, 0.3)
 
         fig.set_size_inches(12, 8)
-        ax1.set_title(f'{self.target}', loc="right", fontsize=16)
+        ax1.set_title(f'Southern Nucleus (0.3 asec)', loc="right", fontsize=16)
         plt.subplots_adjust(hspace=0)
         
         
         
-        if save_name is False:
+        if save_name is True:
             plt.show()
             return (fig, ax1, ax2)
         else:
-            plot_path = os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{self.asec}as/{self.target}_SingleExt_r{self.asec}as_fit.pdf")
-            fig.savefig(plot_path, dpi=1000, format='pdf', bbox_inches='tight')
+            #plot_path = os.path.join(self.cafe_output_path, f"{self.target}_SingleExt_r{self.asec}as/{self.target}_SingleExt_r{self.asec}as_fit5.pdf")
+            plot_path = "pres_plot.pdf"
+            fig.savefig(plot_path, dpi=1200, format='pdf', bbox_inches='tight')
             plt.close()
     
     
@@ -1069,6 +1094,13 @@ class CubeSpec:
             ax.plot(wavemod, fCont)
         plt.show()
         pass"""
+    
+    
+    def relative_velocities(self, wave_c, display=None):
+        
+        spec_dict = self.recall_data()
+        spec_dict["relvel"] = ((const.c * (wave_c - spec_dict["wave"])/spec_dict["wave"]).to(u.kilometer / u.second)).value
+        return spec_dict
 
 
 ## TODO

@@ -29,6 +29,7 @@ from lmfit import Parameters
 import CRETA
 from CRETA.cube_preproc import cube_preproc
 from CRETA.mylmfit2dfun import mylmfit2dfun
+from plotparams import PlotParams
 
 # import ipdb
 
@@ -427,6 +428,7 @@ class cube_handler:
         #for i in range(1,len(self.cube_before)):
         #    img = img + self.cube_before[i,:,:]
 
+        pltparams = PlotParams()
         img = np.nanmedian(self.cube_before, axis=0)
         plt.figure()
         plt.subplot(projection = self.wcs.celestial)
@@ -450,9 +452,11 @@ class cube_handler:
         handles = ap_patches
         # plt.ylim([0,self.NY])
         #plt.ion() 
+        plt.xlabel("RA (J2000)")
+        plt.ylabel("Dec (J2000)")
         plt.legend(handles=handles)
         plt.title(self.name_band)
-        plt.savefig(output_path+output_filebase_name+'_'+self.name_band+"19.png")
+        plt.savefig(output_path+output_filebase_name+'_'+self.name_band+".png")
         #plt.show()
         plt.close()
         

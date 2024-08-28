@@ -5,6 +5,7 @@ data
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.table import Table
+from plotparams import PlotParams
 
 
 # Load in archival data files

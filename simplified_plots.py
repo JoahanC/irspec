@@ -222,6 +222,8 @@ colors = ["orangered", "cyan", "magenta", "lime", "pink", "brown", "gold"]
 hst_file1 = "./../archival_data/hubble_images/IR23128/j9cv82010_drz.fits"
 hst_file2 = "./../archival_data/hubble_images/IR23128/j9cv82020_drz.fits"
 miri_file1 = "./../archival_data/miri_images/IR23128-N_miri_444/jw03368-o047_t031_miri_f770w-brightsky_i2d.fits"
+nirspec_file1 = "./../archival_data/miri_images/IR23128-N_miri_444/jw03368-o047_t031_miri_f770w-brightsky_i2d.fits"
+
 
 from matplotlib.gridspec import GridSpec
 plt.rcParams["font.family"] = "Verdana"

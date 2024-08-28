@@ -21,7 +21,7 @@ from astropy.table import Table
 import shutil
 
 import CRETA
-from CRETA.cube_preproc import cube_preproc
+from cube_preproc_mod import cube_preproc
 from userAPI_mod import userAPI
 from CRETA.write_single_fitscube import write_single_fitscube
 from CRETA.write_grid_fitscube import write_grid_fitscube
@@ -1053,7 +1053,7 @@ class creta:
         
         aper_type = "extended_source"
 
-        cmap = plt.cm.get_cmap('hsv', len(sky_list)+1)
+        cmap = plt.colormaps.get_cmap('hsv')#, len(sky_list)+1)
 
         all_dfs = []
         all_spec1ds = []
