@@ -229,11 +229,11 @@ class LocalFit:
             return popt, pcov
     
     
-    def neon3_fit(self):
+    def multicomponent_double_fit(self, npoly):
         """ 
-        The main refitting routine. The continuum function is defined
-        as an `n` order polynomial. The line is assumed to be 
-        comprised of strictly gaussian components.
+        This fitting routine attempts to fit a blue-shifted and 
+        red-shifted component to a line.
+        CURRENTLY PROTOTYPED
         
         Arguments
         ---------
@@ -245,8 +245,7 @@ class LocalFit:
             feature. The default value is 2.
         """
         
-        ngauss = 3
-        npoly = 1
+        ngauss = 2
         # Define the initial parameter map
         self.n_params = (npoly + 1) + ngauss * 3
         self.params = [None] * self.n_params
@@ -300,36 +299,40 @@ class LocalFit:
                 fluxes += arrays
             return fluxes
         
+        # Set continuum fit parameters
         if npoly == 1:
             self.guess[0] = (self.flux[-1] - self.flux[0]) / (self.wave[-1] - self.wave[0])
             self.guess[1] = self.flux[0] - self.guess[0] * self.wave[0]
-        if npoly == 1:
+        if npoly == 2:
             self.guess[0] = 0
             self.guess[1] = 0
             self.guess[2] = 0
         
+        
         amp_factors = [1, 1, 0.2, 0.1]
         broad_factors = [1, 1, 2, 3]
+        shift_factor = 0.005
         width_data = peak_widths(self.flux, [self.peak_idx])
 
-        
-        wave_cs = [15.551, 15.555, 15.558]
-        #wave_cs = [15.555]
-        #wave_cs = [15.557]
         for idx in range(ngauss):
             self.guess[npoly + 3 * idx + 1] = np.max(self.flux) * amp_factors[idx]
             self.lower_bounds[npoly + 3 * idx + 1] = 0
             self.upper_bounds[npoly + 3 * idx + 1] = np.max(self.flux)
-            self.guess[npoly + 3 * idx + 2] = wave_cs[idx]
-            self.lower_bounds[npoly + 3 * idx + 2] = wave_cs[idx] - 0.001
-            self.upper_bounds[npoly + 3 * idx + 2] = wave_cs[idx] + 0.001
+            if idx == 0:
+                self.guess[npoly + 3 * idx + 2] = self.wave_c - 3 * shift_factor
+                self.lower_bounds[npoly + 3 * idx + 2] = self.wave_c - 4 * shift_factor
+                self.upper_bounds[npoly + 3 * idx + 2] = self.wave_c 
+            if idx == 1:
+                self.guess[npoly + 3 * idx + 2] = self.wave_c + 3 * shift_factor
+                self.lower_bounds[npoly + 3 * idx + 2] = self.wave_c 
+                self.upper_bounds[npoly + 3 * idx + 2] = self.wave_c + 4 * shift_factor
             guess_width = 0#self.wave[int(width_data[3])] - self.wave[int(width_data[2])] * broad_factors[idx]
             if guess_width == 0:
                 self.guess[npoly + 3 * idx + 3] = 0.005
             else:
                 self.guess[npoly + 3 * idx + 3] = guess_width * broad_factors[idx]
         
-        #print(self.guess)
+        """#print(self.guess)
         if True:
             try: 
                 popt, pcov = curve_fit(fitting_function, self.wave, self.flux, self.guess, bounds=(self.lower_bounds, self.upper_bounds), maxfev=5000)
@@ -358,9 +361,8 @@ class LocalFit:
                 self.popt = None 
                 self.pcov = None
                 self.line_strength = 0
-                return None
-        
-        else:
+                return None"""
+        try: 
             popt, pcov = curve_fit(fitting_function, self.wave, self.flux, self.guess, bounds=(self.lower_bounds, self.upper_bounds), maxfev=5000)
             self.fitfunc = fitting_function
             
@@ -369,12 +371,164 @@ class LocalFit:
             self.fitflag = "custom"
             self.residuals = (self.fitfunc(self.wave, *self.popt) - self.flux) / self.flux * 100
             
-            #gamma = self.popt[4] * 2.355 / self.wave_c
-            #print(gamma)
-            #print(self.popt[2])
-            #gauss = [popt[2], popt[3], gamma]
-            #gauss = [popt[3], popt[4], popt[2]]
-            #flux = gauss_prof(self.wave, gauss, ext=None)
+            self.line_strength = 0
+            for idx in range(ngauss):
+                gamma = np.abs(self.popt[npoly + 3 * idx + 3]) * 2.355 / self.popt[npoly + 3 * idx + 2]
+                #print(gamma, self.popt[npoly + 3 * idx + 1], self.popt[npoly + 3 * idx + 2], self.popt[npoly + 3 * idx + 3])
+                self.line_strength += (1 / np.sqrt(np.pi * np.log(2)) * (np.pi * const.c.to('micron/s') / 2) * (self.popt[npoly + 3 * idx + 1] * u.Jy * gamma / (self.popt[npoly + 3 * idx + 2] * u.micron))).to(u.watt / u.meter ** 2)
+                    
+            return popt, pcov
+        except:
+            self.popt = None 
+            self.pcov = None
+            self.line_strength = 0
+            return None
+    
+    def multicomponent_triple_fit(self, npoly):
+        """ 
+        This fitting routine attempts to fit a blue-shifted and 
+        red-shifted component to a line.
+        CURRENTLY PROTOTYPED
+        
+        Arguments
+        ---------
+        npoly : int
+            The degree of the polynomial to be fit as the continuum 
+            function. The default value is 1.
+        ngauss : int 
+            The number of gaussian components to be fit as the line 
+            feature. The default value is 2.
+        """
+        
+        ngauss = 3
+        # Define the initial parameter map
+        self.n_params = (npoly + 1) + ngauss * 3
+        self.params = [None] * self.n_params
+        self.param_map = {}
+        self.param_map_r = {}
+        self.guess = [0] * (npoly + ngauss * 3 + 1)
+        self.lower_bounds = [-np.inf] * (npoly + ngauss * 3 + 1)
+        self.upper_bounds = [np.inf] * (npoly + ngauss * 3 + 1)
+        self.npoly = npoly 
+        self.ngauss = ngauss
+        
+        # Construct the parameter map
+        gauss_idx = 1
+        ngauss_idx = 1
+        for idx, _ in enumerate(self.params):
+            if idx < (npoly + 1):
+                self.param_map[f"poly_{npoly - idx}"] = idx
+                self.param_map_r[str(idx)] = f"poly_{npoly - idx}"
+            if idx >= (npoly + 1):
+                self.param_map[f"gauss_{ngauss_idx}_{gauss_idx}"] = idx
+                self.param_map_r[str(idx)] = f"gauss_{ngauss_idx}_{gauss_idx}"
+                gauss_idx += 1
+                if gauss_idx == 4:
+                    gauss_idx = 1
+                    ngauss_idx += 1
+        
+        # Define the continuum function
+        if npoly == 1:
+            self.continuum = OneDPolynomial
+        if npoly == 2:
+            self.continuum = TwoDPolynomial
+        
+        # Define the complete set of gaussians
+        for _ in range(ngauss):
+            self.gaussians.append(OneDGaussian)
+        
+        
+        def fitting_function(wave, *pars):
+            """ 
+            Dynamically defined fitting function.
+            """
+            if self.npoly == 1:
+                continuum = self.continuum(wave, pars[0], pars[1])
+            if self.npoly == 2:
+                continuum = self.continuum(wave, pars[0], pars[1], pars[2])
+            gaussian_values = []
+            for idx, gaussian in enumerate(self.gaussians):
+                gaussian_values.append(gaussian(wave, pars[npoly + 3 * idx + 1], pars[npoly + 3 * idx + 2], pars[npoly + 3 * idx + 3]))
+            fluxes = continuum
+            for arrays in gaussian_values:
+                fluxes += arrays
+            return fluxes
+        
+        # Set continuum fit parameters
+        if npoly == 1:
+            self.guess[0] = (self.flux[-1] - self.flux[0]) / (self.wave[-1] - self.wave[0])
+            self.guess[1] = self.flux[0] - self.guess[0] * self.wave[0]
+        if npoly == 2:
+            self.guess[0] = 0
+            self.guess[1] = 0
+            self.guess[2] = 0
+        
+        
+        amp_factors = [1, 1, 0.2, 0.1]
+        broad_factors = [1, 1, 1, 1]
+        shift_factor = 0.01
+        width_data = peak_widths(self.flux, [self.peak_idx])
+
+        for idx in range(ngauss):
+            self.guess[npoly + 3 * idx + 1] = np.max(self.flux) * amp_factors[idx]
+            self.lower_bounds[npoly + 3 * idx + 1] = 0
+            self.upper_bounds[npoly + 3 * idx + 1] = np.max(self.flux)
+            if idx == 0:
+                self.guess[npoly + 3 * idx + 2] = self.wave_c
+                self.lower_bounds[npoly + 3 * idx + 2] = self.wave_c - shift_factor
+                self.upper_bounds[npoly + 3 * idx + 2] = self.wave_c + shift_factor
+            if idx == 1:
+                self.guess[npoly + 3 * idx + 2] = self.wave_c - 4 * shift_factor
+                self.lower_bounds[npoly + 3 * idx + 2] = self.wave_c - 10 * shift_factor
+                self.upper_bounds[npoly + 3 * idx + 2] = self.wave_c - shift_factor
+            if idx == 2:
+                self.guess[npoly + 3 * idx + 2] = self.wave_c + 4 * shift_factor
+                self.lower_bounds[npoly + 3 * idx + 2] = self.wave_c + shift_factor
+                self.upper_bounds[npoly + 3 * idx + 2] = self.wave_c + 10 * shift_factor
+            guess_width = self.wave[int(width_data[3])] - self.wave[int(width_data[2])] * broad_factors[idx]
+            if guess_width == 0:
+                self.guess[npoly + 3 * idx + 3] = 0.005
+            else:
+                self.guess[npoly + 3 * idx + 3] = guess_width * broad_factors[idx]
+        
+        """#print(self.guess)
+        if True:
+            try: 
+                popt, pcov = curve_fit(fitting_function, self.wave, self.flux, self.guess, bounds=(self.lower_bounds, self.upper_bounds), maxfev=5000)
+                self.fitfunc = fitting_function
+                
+                self.popt = popt 
+                self.pcov = pcov
+                self.fitflag = "custom"
+                self.residuals = (self.fitfunc(self.wave, *self.popt) - self.flux) / self.flux * 100
+                
+                #gamma = self.popt[4] * 2.355 / self.wave_c
+                #print(gamma)
+                #print(self.popt[2])
+                #gauss = [popt[2], popt[3], gamma]
+                #gauss = [popt[3], popt[4], popt[2]]
+                #flux = gauss_prof(self.wave, gauss, ext=None)
+                
+                self.line_strength = 0
+                for idx in range(ngauss):
+                    gamma = np.abs(self.popt[npoly + 3 * idx + 3]) * 2.355 / self.popt[npoly + 3 * idx + 2]
+                    #print(gamma, self.popt[npoly + 3 * idx + 1], self.popt[npoly + 3 * idx + 2], self.popt[npoly + 3 * idx + 3])
+                    self.line_strength += (1 / np.sqrt(np.pi * np.log(2)) * (np.pi * const.c.to('micron/s') / 2) * (self.popt[npoly + 3 * idx + 1] * u.Jy * gamma / (self.popt[npoly + 3 * idx + 2] * u.micron))).to(u.watt / u.meter ** 2)
+                        
+                return popt, pcov
+            except:
+                self.popt = None 
+                self.pcov = None
+                self.line_strength = 0
+                return None"""
+        try: 
+            popt, pcov = curve_fit(fitting_function, self.wave, self.flux, self.guess, bounds=(self.lower_bounds, self.upper_bounds), maxfev=5000)
+            self.fitfunc = fitting_function
+            
+            self.popt = popt 
+            self.pcov = pcov
+            self.fitflag = "custom"
+            self.residuals = (self.fitfunc(self.wave, *self.popt) - self.flux) / self.flux * 100
             
             self.line_strength = 0
             for idx in range(ngauss):
@@ -383,6 +537,11 @@ class LocalFit:
                 self.line_strength += (1 / np.sqrt(np.pi * np.log(2)) * (np.pi * const.c.to('micron/s') / 2) * (self.popt[npoly + 3 * idx + 1] * u.Jy * gamma / (self.popt[npoly + 3 * idx + 2] * u.micron))).to(u.watt / u.meter ** 2)
                     
             return popt, pcov
+        except:
+            self.popt = None 
+            self.pcov = None
+            self.line_strength = 0
+            return None
     
     
     def fit_test(self):

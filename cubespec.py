@@ -36,7 +36,7 @@ class CubeSpec:
     """
     
     def __init__(self, creta_dir, param_path, param_file, creta_input_path, 
-                 redshift=None, fit_dirname=None, mode="SB_and_AGN"):
+                 redshift=None, fit_dirname=None, fit_idx=0, mode="SB_and_AGN"):
         
         # Set and verify essential path variables
         self._creta_dir = os.path.abspath(creta_dir)
@@ -628,8 +628,8 @@ class CubeSpec:
         fCont = fCir + fCld + fCoo + fWrm + fHot + fStb + fStr + fDsk
         wavemod = comps['wave']
         
-        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios':[3,1]}, figsize=(8,8), sharex=True)
-        ax1.scatter(spec['wave'], spec['flux'], color="white", s=2, edgecolor='white', facecolor='none', label='Spec Data', alpha=0.6, zorder=0)
+        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios':[3,1]}, figsize=(3,8), sharex=True)
+        ax1.scatter(spec['wave'], spec['flux'], color="white", s=25, edgecolor='white', facecolor='none', label='Spec Data', alpha=0.6, zorder=0)
         #ax1.errorbar(spec['wave'], spec['flux'], yerr=spec['flux_unc'], fmt='none', color='white', alpha=0.1)
         if phot is not None:
             ax1.scatter(phot['wave'], phot['flux'], marker='x', s=18, edgecolor='none', facecolor='black', label='Phot Data', alpha=0.9)
@@ -652,7 +652,7 @@ class CubeSpec:
             
         alpha = 1
         lw = 2
-        if np.any(fCir > 0):
+        """if np.any(fCir > 0):
             ax1.plot(wavemod, fCir, label='Cirrus', c='tab:cyan', alpha=alpha, linewidth=lw)
         if np.sum(fCld > 0):
             ax1.plot(wavemod, fCld, label='Cold'+CLD_TMP, c='tab:blue', alpha=alpha, linewidth=lw, linestyle="dashed")
@@ -666,8 +666,8 @@ class CubeSpec:
             ax1.plot(wavemod, fStb, label='Starburst', c='#FFEC00', alpha=alpha, linewidth=lw, linestyle="dotted")
         if np.any(fStr > 0):
             ax1.plot(wavemod, fStr, label='Stellar', c='#FF4500', alpha=alpha, linewidth=lw) # orangered
-        #if np.any(fDsk > 0):
-        #    ax1.plot(wavemod, fDsk, label='AGN', c='tab:red', alpha=alpha, linewidth=lw)
+        if np.any(fDsk > 0):
+            ax1.plot(wavemod, fDsk, label='AGN', c='tab:red', alpha=alpha, linewidth=lw)"""
         if np.any(fLin > 0):
             ax1.plot(wavemod, fCont+fLin, label='Lines', c='lime', alpha=alpha, linewidth=lw, zorder=0) # blue ##1e6091
 
@@ -717,7 +717,7 @@ class CubeSpec:
         ax1.set_xlim(left=4.7, right=15)
         ax1.set_xlim(np.nanmin(wave)/1.2, 1.2*np.nanmax(wave))
         ax1.set_ylabel(r'$f_\nu$ (Jy)', fontsize=20)
-        ax1.set_xscale('log')
+        #ax1.set_xscale('log')
         ax1.set_yscale('log')
         #ax1.axvline(9.7, linestyle='--', alpha=0.2)
 
@@ -740,11 +740,12 @@ class CubeSpec:
         #ax2.set_ylabel(r'$f^{data}_\nu - f^{tot}_\nu$ $(\sigma)$', fontsize=14)
         ax2.set_ylabel('Residuals (%)', fontsize=20)
         #ax1.set_zorder(100)
-        ax1.set_xlim(4.7, 15)
-        ax1.set_ylim(0.005, 0.3)
+        #ax1.set_xscale('log')
+        ax1.set_xlim(12.78, 12.85)
+        ax1.set_ylim(0.1, 4)
 
-        fig.set_size_inches(12, 8)
-        ax1.set_title(f'Southern Nucleus (0.3 asec)', loc="right", fontsize=16)
+        fig.set_size_inches(8, 8)
+        ax1.set_title(f'South', loc="right", fontsize=16)
         plt.subplots_adjust(hspace=0)
         
         

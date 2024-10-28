@@ -14,59 +14,25 @@ from plotparams import PlotParams
 from localfit import LocalFit
 
 
-core="S"
-name = "[NeV]_14"
+core = "S"
+name = "[H_2_S_3]"
+type = "triple"
+multicomponent = True
 
-# NeV
-#channel = 4
-#subchannel = "long"
-#waverange = [24.1, 24.5]
-#wave_c = 24.316
-
-# NeV 14micron
-#channel = 3
-#subchannel = "medium"
-#waverange = [14.28, 14.35]
-#wave_c = 14.319
-#true_wave_c = 14.3217
-
-# H2 S3
-#channel = 2
-#subchannel = "medium"
-#waverange = [9.64, 9.69]
-#wave_c = 9.667
-#true_wave_c = 9.6649
-
-# OIV
-#channel = 4
-#subchannel = "long"
-#waverange = [25.62, 26.08]
-#wave_c = 25.88
-
-# MgV FIX
-#channel = 1
-#subchannel = "medium"
-#waverange = [5.57, 5.656]
-#wave_c = 5.609
-
-# NeIII
-channel = 3
-subchannel = "long"
-waverange = [15.38, 15.67]
-wave_c = 15.555100
-
-# NeII
-#channel = 3
-#subchannel = "medium"
-#waverange = [12.77, 12.9]
-#wave_c = 12.81
-#true_wave_c = 
+line_dict = {"[NeV]": [4, "long", [24.1, 24.5], 24.316],
+             "[NeV]_14": [3, "medium", [14.28, 14.35], 14.3217],
+             "[H_2_S_3]": [2, "medium", [9.64, 9.69], 9.6649], 
+             "[OIV]": [4, "long", [25.62, 26.08], 25.88], 
+             "MgV": [1, "medium", [5.57, 5.656], 5.609],
+             "[NeIII]": [3, "long", [15.38, 15.67], 15.5551],
+             "[NeII]": [3, "medium", [12.77, 12.9], 12.81],
+             "[FeII]": [1, "short", [5.30, 5.41], 5.3396]}
 
 redshift = 0.044601
 if core == "N":
-    datacube = f"./../input_data/IR23128-N_grid/iras23128-n_ch{channel}-{subchannel}_s3d.fits"
+    datacube = f"./../input_data/IR23128-N/ch{line_dict[name][0]}-{line_dict[name][1]}_s3d.fits"
 if core == "S":
-    datacube = f"./../input_data/IR23128-S/Level3_ch{channel}-{subchannel}_s3d.fits"
+    datacube = f"./../input_data/IR23128-S/ch{line_dict[name][0]}-{line_dict[name][1]}_s3d.fits"
 
 
 hdul = fits.open(datacube)
@@ -82,6 +48,10 @@ data_quality = hdul[3].data[0]
 fluxes = np.zeros((np.shape(data)[1], np.shape(data)[2]))
 #print(np.shape(data))
 
+"""fig, ax = plt.subplots()
+ax.imshow(data_quality)
+plt.show()"""
+
 print(wavelengths[0], wavelengths[1])
 
 x_pix = []
@@ -89,133 +59,134 @@ y_pix = []
 fluxes_t = []
 line_center = []
 fwhm = []
+fluxes_amp_1 = []
+line_center_1 = []
+fwhm_1 = []
+fluxes_amp_2 = []
+line_center_2 = []
+fwhm_2 = []
+fluxes_amp_3 = []
+line_center_3 = []
+fwhm_3 = []
 
-"""
-pixels = [(13, 24), (15, 28), (16,31), (6,27)]
-blue_pixels = [(28, 15),  (27,6), (33, 12)]
-red_pixels = [(27, 40), (35, 29), (25,32), (23,38), (33, 12)]
-red_pixels = [(21, 26),  (30,30), (29, 35)]
-
-
-pprams = PlotParams(scaling="presentation")
-for pixel in blue_pixels:
-    full_spec_1 = data[:, pixel[0], pixel[1]]
-    full_spec_2 = data[:, pixel[0]+1, pixel[1]]
-    full_spec_3 = data[:, pixel[0], pixel[1]+1]
-    full_spec_4 = data[:, pixel[0]+1, pixel[1]+1]
-    full_spec = full_spec_1 + full_spec_2 + full_spec_3 + full_spec_4
-    
-    fig, ax = plt.subplots()
-    fig.set_size_inches(10, 10)
-    ax.plot(wavelengths, full_spec / np.max(full_spec), color="white", lw=5)
-    ax.set_xlim(15.475, 15.6)
-    #ax.set_yscale("log")
-    ax.axvline(15.553, color="yellow", alpha=1)
-    #ax.set_ylabel("Relative In")
-    plt.xticks([])
-    plt.yticks([])
-    ax.grid()
-    plt.savefig(f"./line_profile_blue_{pixel[0]}_{pixel[1]}.pdf", dpi=600, bbox_inches="tight")
-    plt.close()
-
-for idx, pixel in enumerate(red_pixels):
-    full_spec_1 = data[:, pixel[0], pixel[1]]
-    full_spec_2 = data[:, pixel[0]+1, pixel[1]]
-    full_spec_3 = data[:, pixel[0], pixel[1]+1]
-    full_spec_4 = data[:, pixel[0]+1, pixel[1]+1]
-    full_spec = full_spec_1 + full_spec_2 + full_spec_3 + full_spec_4
-    
-    fig, ax = plt.subplots()
-    fig.set_size_inches(10, 10)
-    ax.plot(wavelengths, full_spec / np.max(full_spec), color="white", lw=5)
-    ax.set_xlim(15.475, 15.6)
-    #ax.set_yscale("log")
-    ax.axvline(15.553, color="yellow", alpha=1)
-    plt.xticks([])
-    plt.yticks([])
-    #ax.set_ylabel("Relative In")
-    ax.grid()
-    plt.savefig(f"./line_profile_red_{pixel[0]}_{pixel[1]}.pdf", dpi=600, bbox_inches="tight")
-    plt.close()
-
-blue_dif_array = np.absolute(wavelengths - (15.533))
-difference = 15.5526 - 15.533
-red_dif_array = np.absolute(wavelengths - (15.5526 + difference))
-blue_idx = blue_dif_array.argmin()
-red_idx = red_dif_array.argmin()
-
-print(blue_idx, red_idx)
-blue_cube = data[blue_idx]
-red_cube = data[red_idx]
-
-z1, z2 = z.get_limits(blue_cube)
-fig, ax = plt.subplots()
-ax.imshow(blue_cube, norm=LogNorm(1, z2), origin="lower", cmap="plasma")
-#ax.set_title(r"15.535 $\mu m$", fontsize=24)
-ax.set_title(f"-{round(difference, 4)}" + r" $\mu m$", fontsize=24)
-for pixel in blue_pixels:
-    circle=plt.Circle((pixel[1],pixel[0]),2, color="black", fill=False, lw=3)
-    ax.add_patch(circle)
-ax.set_xlabel("XPIX")
-ax.set_ylabel("YPIX")
-plt.savefig("blue_cube.pdf", dpi=600, bbox_inches="tight")
-
-z1, z2 = z.get_limits(red_cube)
-fig, ax = plt.subplots()
-
-ax.imshow(red_cube, norm=LogNorm(0.5, z2), origin="lower", cmap="plasma")
-for pixel in red_pixels:
-    circle=plt.Circle((pixel[1],pixel[0]),2, color="black", fill=False, lw=3)
-    ax.add_patch(circle)
-ax.set_xlabel("XPIX")
-ax.set_ylabel("YPIX")
-ax.set_title(f"+{round(difference, 4)}" + r" $\mu m$", fontsize=24)
-plt.savefig("red_cube.pdf", dpi=600, bbox_inches="tight")"""
-
-
-"""for i in range(np.shape(data)[1]):
+for i in range(np.shape(data)[1]):
     for j in range(np.shape(data)[2]):
+        
         x_pix.append(i)
         y_pix.append(j) 
         if data_quality[i, j] == 513:
-            fluxes_t.append(np.nan)
-            line_center.append(np.nan)
-            fwhm.append(np.nan)
-            continue
+            if multicomponent:
+                fluxes_t.append(np.nan)
+                fluxes_amp_1.append(np.nan)
+                line_center_1.append(np.nan)
+                fwhm_1.append(np.nan)
+                fluxes_amp_2.append(np.nan)
+                line_center_2.append(np.nan)
+                fwhm_2.append(np.nan)
+                if type == "triple":
+                    fluxes_amp_3.append(np.nan)
+                    line_center_3.append(np.nan)
+                    fwhm_3.append(np.nan)
+                continue
+            else:
+                fluxes_t.append(np.nan)
+                line_center.append(np.nan)
+                fwhm.append(np.nan)
+                continue
+        
         full_spec_1 = data[:, i, j]
         
+        if np.isnan(full_spec_1).any():
+            print("NAN IN SPECTRUM")
+            if multicomponent:
+                fluxes_t.append(np.nan)
+                fluxes_amp_1.append(np.nan)
+                line_center_1.append(np.nan)
+                fwhm_1.append(np.nan)
+                fluxes_amp_2.append(np.nan)
+                line_center_2.append(np.nan)
+                fwhm_2.append(np.nan)
+                if type == "triple":
+                    fluxes_amp_3.append(np.nan)
+                    line_center_3.append(np.nan)
+                    fwhm_3.append(np.nan)
+                continue
         
+        if multicomponent:
+            #print(full_spec_1)
+            loc = LocalFit(wavelengths, full_spec_1, line_dict[name][2], line_dict[name][3], name)
+            npoly = 1
+            if type == "triple":
+                loc.multicomponent_triple_fit(npoly=npoly)
+            if type == "double":
+                loc.multicomponent_double_fit(npoly=npoly)
         
-        #fig, ax = plt.subplots()
-        #ax.plot(wavelengths, full_spec_1)
-        #ax.set_yscale("log")
-        #plt.show()
-        loc = LocalFit(wavelengths, full_spec_1, waverange, wave_c, name)
-        #loc.main_fit(npoly=1, ngauss=1, spaxel_fit=True)
-        loc.neon3_fit()
-        #if i == 15 and j == 30:
-        #    loc.render_fit(path="./test.pdf")
-        print(loc.popt)
+            #loc.neon3_fit()
+            #if i == 15 and j == 30:
+            #    loc.render_fit(path="./test.pdf")
+            #print(loc.popt)
 
-        print(f"SPAXEL: {i}, {j}")
-        #print(loc.line_strength.value)
-        if loc.line_strength == 0:
-            fluxes_t.append(np.nan)
-            line_center.append(np.nan)
-            fwhm.append(np.nan)
-            fluxes[i, j] = 0
+            print(f"SPAXEL: {i}, {j}")
+            
+            #print(loc.line_strength.value)
+            if loc.line_strength == 0:
+                fluxes_t.append(np.nan)
+                fluxes_amp_1.append(np.nan)
+                line_center_1.append(np.nan)
+                fwhm_1.append(np.nan)
+                fluxes_amp_2.append(np.nan)
+                line_center_2.append(np.nan)
+                fwhm_2.append(np.nan)
+                if type == "triple":
+                    fluxes_amp_3.append(np.nan)
+                    line_center_3.append(np.nan)
+                    fwhm_3.append(np.nan)
+                fluxes[i, j] = 0
+            else:
+                fluxes_t.append(loc.line_strength.value)
+                fluxes_amp_1.append(loc.popt[npoly + 1])
+                line_center_1.append(loc.popt[npoly + 2])
+                fwhm_1.append(loc.popt[npoly + 3] * 2.355)
+                fluxes_amp_2.append(loc.popt[npoly + 3 + 1])
+                line_center_2.append(loc.popt[npoly + 3 + 2])
+                fwhm_2.append(loc.popt[npoly + 3 + 3] * 2.355)
+                if type == "triple":
+                    fluxes_amp_3.append(loc.popt[npoly + 6 + 1])
+                    line_center_3.append(loc.popt[npoly + 6 + 2])
+                    fwhm_3.append(loc.popt[npoly + 6 + 3] * 2.355)
+                fluxes[i, j] = loc.line_strength.value
+        
         else:
-            fluxes_t.append(loc.line_strength.value)
-            line_center.append(loc.popt[3] - true_wave_c)
-            fwhm.append(loc.popt[3] * 2.355)
-            fluxes[i, j] = loc.line_strength.value"""
+            loc = LocalFit(wavelengths, full_spec_1, line_dict[name][2], line_dict[name][3], name)
+            loc.main_fit(npoly=1, ngauss=1, spaxel_fit=True)
+            print(f"SPAXEL: {i}, {j}")
+            
+            if loc.line_strength == 0:
+                fluxes_t.append(np.nan)
+                line_center.append(np.nan)
+                fwhm.append(np.nan)
+                fluxes[i, j] = 0
+            else:
+                fluxes_t.append(loc.line_strength.value)
+                line_center.append(loc.popt[2] - line_dict[name][3])
+                fwhm.append(loc.popt[3] * 2.355)
+                fluxes[i, j] = loc.line_strength.value
 
-"""fitparams = Table([x_pix, y_pix, fluxes_t, line_center, fwhm], names=("XPIX", "YPIX", "FLUX", "LINEC", "FWHM"))
-fitparams.write(f"./../diagnostic_plots/spaxel_maps/{core}_{name}_{loc.npoly}_{loc.ngauss}.dat", format="ipac", overwrite=True)
+if multicomponent:
+    if type == "double":
+        fitparams = Table([x_pix, y_pix, fluxes_t, fluxes_amp_1, line_center_1, fwhm_1, fluxes_amp_2, line_center_2, fwhm_2], names=("XPIX", "YPIX", "FLUXT", "AMP1", "DLINE1", "FWHM1", "AMP2", "DLINE2", "FWHM2"))
+        fitparams.write(f"./../diagnostic_plots/spaxel_maps/{core}_{name}_{loc.npoly}_{loc.ngauss}_multi_double.dat", format="ipac", overwrite=True)
+    if type == "triple":
+        fitparams = Table([x_pix, y_pix, fluxes_t, fluxes_amp_1, line_center_1, fwhm_1, fluxes_amp_2, line_center_2, fwhm_2, fluxes_amp_3, line_center_3, fwhm_3], names=("XPIX", "YPIX", "FLUXT", "AMP1", "DLINE1", "FWHM1", "AMP2", "DLINE2", "FWHM2", "AMP3", "DLINE3", "FWHM3"))
+        fitparams.write(f"./../diagnostic_plots/spaxel_maps/{core}_{name}_{loc.npoly}_{loc.ngauss}_multi_triple.dat", format="ipac", overwrite=True)
+        
+else:
+    fitparams = Table([x_pix, y_pix, fluxes_t, line_center, fwhm], names=("XPIX", "YPIX", "FLUX", "LINEC", "FWHM"))
+    fitparams.write(f"./../diagnostic_plots/spaxel_maps/{core}_{name}_{loc.npoly}_{loc.ngauss}.dat", format="ipac", overwrite=True)
 
-np.savetxt(f"./../diagnostic_plots/spaxel_maps/{core}_{name}.txt", fluxes)"""
+"""np.savetxt(f"./../diagnostic_plots/spaxel_maps/{core}_{name}.txt", fluxes)
 
-"""pprams = PlotParams(palatte="dark", scaling="presentation")
+pprams = PlotParams(palatte="dark", scaling="presentation")
 
 fig = plt.figure()
 wcs = WCS(hdul[1].header)

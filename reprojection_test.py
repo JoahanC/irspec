@@ -1,3 +1,7 @@
+""" 
+This file contains an example for reprojecting HST/Spitzer/JWST images.
+"""
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.font_manager as fm

@@ -86,9 +86,9 @@ class PlotParams:
         plt.rcParams["ytick.labelsize"] = 14
         plt.rcParams["ytick.direction"] = "in"
         
-        plt.rcParams["axes.grid"] = True
-        plt.rcParams["grid.alpha"] = 0.5
-        plt.rcParams["grid.linewidth"] = 0.5
+        #plt.rcParams["axes.grid"] = True
+        #plt.rcParams["grid.alpha"] = 0.5
+        #plt.rcParams["grid.linewidth"] = 0.5
         plt.rcParams["legend.fontsize"] = 12
         
         plt.rcParams["savefig.dpi"] = 1200
@@ -103,11 +103,12 @@ class PlotParams:
         plt.rcParams["figure.figsize"] = (8,6)
         
         
-        plt.rcParams["axes.labelsize"] = 16
+        plt.rcParams["axes.labelsize"] = 32
+        plt.rcParams["axes.titlesize"] = 28
         
-        plt.rcParams["xtick.labelsize"] = 14
+        plt.rcParams["xtick.labelsize"] = 28
         plt.rcParams["xtick.direction"] = "in"
-        plt.rcParams["ytick.labelsize"] = 14
+        plt.rcParams["ytick.labelsize"] = 28
         plt.rcParams["ytick.direction"] = "in"
         
         plt.rcParams["axes.grid"] = True
@@ -115,7 +116,7 @@ class PlotParams:
         plt.rcParams["grid.linewidth"] = 0.5
         plt.rcParams["legend.fontsize"] = 12
         
-        plt.rcParams["savefig.dpi"] = 1000
+        plt.rcParams["savefig.dpi"] = 800
         plt.rcParams["savefig.bbox"] = "tight"
     
     
@@ -127,9 +128,21 @@ class PlotParams:
         plt.style.use('dark_background')
         plt.rcParams["figure.figsize"] = (8,6)
         
-        plt.rcParams["axes.grid"] = True
-        plt.rcParams["grid.alpha"] = 0.5
+        plt.rcParams["axes.labelsize"] = 32
+        plt.rcParams["axes.titlesize"] = 28
+        
+        plt.rcParams["xtick.labelsize"] = 28
+        plt.rcParams["xtick.direction"] = "in"
+        plt.rcParams["ytick.labelsize"] = 28
+        plt.rcParams["ytick.direction"] = "in"
+        
+        #plt.rcParams["axes.grid"] = False
+        #plt.rcParams["grid.alpha"] = 0.5
         plt.rcParams["grid.linewidth"] = 0.5
+        plt.rcParams["legend.fontsize"] = 12
+        
+        plt.rcParams["savefig.dpi"] = 800
+        plt.rcParams["savefig.bbox"] = "tight"
     
     
     def dark_colors(self):

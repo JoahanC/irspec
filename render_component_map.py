@@ -9,28 +9,28 @@ from astropy.visualization import ZScaleInterval
 
 from plotparams import PlotParams
 
-
+core = "S"
+name = "[NeV]_14"
+npoly = 1
+ngauss = 1
+param = "LINEC"
 pprams = PlotParams(palatte='dark', scaling="presentation")
-#spaxel_arr1 = np.loadtxt("./../diagnostic_plots/spaxel_maps/north_neiii.txt", dtype=float)
-#data = ascii.read("./../diagnostic_plots/spaxel_maps/S_[NeIII]_1_1.dat", format="ipac")  
-#data = ascii.read("./../diagnostic_plots/spaxel_maps/S_H2_S3_1_1.dat", format="ipac")  
-
-data = ascii.read("./../diagnostic_plots/spaxel_maps/neiii_fluxes_red.dat", format="ipac")  
+data = ascii.read(f"./../diagnostic_plots/spaxel_maps/{core}_{name}_{npoly}_{ngauss}.dat", format="ipac")  
 
 
 #base_array = np.zeros((45, 45))
-base_array = np.zeros((49, 49))
-print(base_array)
+print(np.max(data["XPIX"]))
+base_array = np.zeros((np.max(data["XPIX"]) + 1, np.max(data["YPIX"]) + 1))
 for idx, _ in enumerate(data["XPIX"]):
-    #if np.abs(data["LINEC"][idx]) > 0.004393:
+    base_array[data["XPIX"][idx]][data["YPIX"][idx]] = data[param][idx]
+    
+    """#if np.abs(data["LINEC"][idx]) > 0.004393:
         #rel_vel = ((const.c * (data["LINEC"][idx])/15.555100).to(u.kilometer / u.second)).value
         #base_array[data["XPIX"][idx]][data["YPIX"][idx]] = rel_vel
         print(data["BLUE"][idx])
         base_array[data["XPIX"][idx]][data["YPIX"][idx]] = data["BLUE"][idx]
     #else:
-    #    base_array[data["XPIX"][idx]][data["YPIX"][idx]] = np.nan
-
-print(base_array)
+    #    base_array[data["XPIX"][idx]][data["YPIX"][idx]] = np.nan"""
 
 #norm=LogNorm(0.01, 0.05), 
 #z = ZScaleInterval()

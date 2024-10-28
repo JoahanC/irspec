@@ -1,6 +1,6 @@
 """ 
 This script generates several diagnostic plots dedidated to broad 
-morphological studes of IR23128
+morphological studes of IR23128 using Inami and Stierwalt values
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +13,53 @@ from cubespec import CubeSpec
 from plotparams import PlotParams
 
 
+def sulfur_neon_diagnostic(target="IR 23128-5919"):
+    """ 
+    Generate a radiation field hardness diagnostic using the 
+    [SIV]/[NeII] ratio and the [NeIII]/[NeII] ratio.
+    """
+    
+    # Steirwalt
+    st1_readme_path = "https://cdsarc.cds.unistra.fr/ftp/J/ApJS/206/1/ReadMe"
+    # Inami
+    st2_readme_path = "https://cdsarc.u-strasbg.fr/ftp/J/ApJ/777/156/ReadMe"
+
+    # Read in both tables
+    
+    steirwalt_table = ascii.read(st1_file1_path, readme=st1_readme_path)
+    inami_table = ascii.read(st2_file1_path, readme=st2_readme_path)
+    
+    ### Apply filters to remove unconstrained objects
+    
+    siv_ne_err = siv_ne[~np.logical_not(siv_ne["l_[SIV]"].mask)]
+    siv_ne_err = siv_ne_err[~np.logical_not(siv_ne_err["l_[NeIII]"].mask)]
+    siv_ne_err = siv_ne_err[~np.logical_not(siv_ne_err["l_[NeII]"].mask)]
+    siv_ne_err = siv_ne_err[~np.logical_not(siv_ne_err["l_EW"].mask)]
+    
+    # Collect old Inami value for target 
+    
+    old_inami = siv_ne_err[siv_ne_err["Name"]=="IR 23128-5919"]
+    
+    # Calculate line ratios and conduct error propagation
+    
+    ne3_ne2_ratio_unlog = siv_ne_err["[NeIII]"] / siv_ne_err["[NeII]"]
+    ne3_ne2_ratio = np.log10(ne3_ne2_ratio_unlog)
+    ne3_ne2_ratio_err = np.abs(np.log10(ne3_ne2_ratio_unlog) * np.log10(np.sqrt((siv_ne_err["e_[NeIII]"] / siv_ne_err["[NeIII]"]) ** 2 + (siv_ne_err["e_[NeII]"] / siv_ne_err["[NeII]"]) ** 2)))
+    s4_ne2_ratio_unlog = siv_ne_err["[SIV]"] / siv_ne_err["[NeII]"]
+    s4_ne2_ratio = np.log10(s4_ne2_ratio_unlog)
+    s4_ne2_ratio_err = np.abs(np.log10(s4_ne2_ratio_unlog) * np.log10(np.sqrt((siv_ne_err["e_[SIV]"] / siv_ne_err["[SIV]"]) ** 2 + (siv_ne_err["e_[NeII]"] / siv_ne_err["[NeII]"]) ** 2)))
+    
+    # Calculate Inami ratios for target 
+    
+    target_ne3_ne2_ratio_unlog = old_inami["[NeIII]"] / old_inami["[NeII]"]
+    target_ne3_ne2_ratio = np.log10(target_ne3_ne2_ratio_unlog)
+    target_s4_ne2_ratio_unlog = old_inami["[SIV]"] / old_inami["[NeII]"]
+    target_s4_ne2_ratio = np.log10(target_s4_ne2_ratio_unlog)
+
+
+
+    pass
+
 # Instantiate plotting parameters
 pltparams = PlotParams(palatte="dark", scaling="presentation")
 #colors = ["tab:blue", "tab:orange", "green", "red", "purple"]
@@ -21,9 +68,9 @@ colors = ["orangered", "cyan", "magenta", "lime", "pink", "brown", "gold"]
 #markers = pltparams.markers()
 
 # Flags for enabling which diagnostic plots to generate
-generate_siv_ne_plot = False
+generate_siv_ne_plot = True
 generate_ox_iron_plot = False
-generate_pah_plot = True
+generate_pah_plot = False
 
 
 # Define all file paths for archival data
@@ -37,6 +84,7 @@ st2_file3_path = "https://cdsarc.u-strasbg.fr/ftp/J/ApJ/777/156/table3.dat"
 
 st3_readme_path = "https://cdsarc.u-strasbg.fr/ftp/pub/J/other/ApJ/790/124/ReadMe"
 st3_file1_path = "https://cdsarc.u-strasbg.fr/ftp/pub/J/other/ApJ/790/124/table1.dat"
+
 
 table1 = ascii.read(st1_file1_path, readme=st1_readme_path)
 table2 = ascii.read(st2_file1_path, readme=st2_readme_path)
@@ -150,7 +198,7 @@ if generate_siv_ne_plot:
     fig, ax = plt.subplots()
     fig.set_size_inches(16, 10)
     
-    markers, caps, bars = ax.errorbar(s4_ne2_ratio, ne3_ne2_ratio, xerr=s4_ne2_ratio_err * 0.1, yerr=ne3_ne2_ratio_err * 0.05, alpha=0.3, fmt="o", ms=0, color="white", ls="None", ecolor="white", zorder=0)
+    #markers, caps, bars = ax.errorbar(s4_ne2_ratio, ne3_ne2_ratio, xerr=s4_ne2_ratio_err * 0.1, yerr=ne3_ne2_ratio_err * 0.05, alpha=0.3, fmt="o", ms=0, color="white", ls="None", ecolor="white", zorder=0)
     cvals = ax.scatter(s4_ne2_ratio, ne3_ne2_ratio, s=100, c="white", alpha=0.4, zorder=1, label="Inami+2013")
     ax.set_xlabel("[NeIII]/[NeII]")
     ax.set_ylabel("[SIV]/[NeII]")
@@ -176,12 +224,12 @@ if generate_siv_ne_plot:
     ax.scatter(new_ne3_ne2_ratio[4], new_s4_ne2_ratio[4], s=800, marker="*", label=r"Nc", zorder=6)"""
     
     # Plot all of the new data points
-    #ax.scatter(new_s4_ne2_ratio[0], new_ne3_ne2_ratio[0], s=1000, marker="*", color=colors[0], label=r"a", edgecolors="black", zorder=6)
-    #ax.scatter(new_s4_ne2_ratio[1], new_ne3_ne2_ratio[1], s=1000, marker="*", color=colors[1], label=r"b", edgecolors="black", zorder=5)
-    #ax.scatter(new_s4_ne2_ratio[2], new_ne3_ne2_ratio[2], s=1000, marker="*", color=colors[2], label=r"c", edgecolors="black", zorder=4)
-    #ax.scatter(new_s4_ne2_ratio[3], new_ne3_ne2_ratio[3], s=1000, marker="^", color=colors[3], label=r"N", edgecolors="black", zorder=3)
-    #ax.scatter(new_s4_ne2_ratio[4], new_ne3_ne2_ratio[4], s=1000, marker="v", color=colors[4], label=r"S", edgecolors="black", zorder=2)
-    ax.scatter(eso_s4_ne2_ratio[0], eso_ne3_ne2_ratio[0], s=1000, color=colors[5], label="ESO 148-IG002", zorder=1)
+    ax.scatter(new_s4_ne2_ratio[0], new_ne3_ne2_ratio[0], s=1000, marker="*", color=colors[0], label=r"a", edgecolors="black", zorder=6)
+    ax.scatter(new_s4_ne2_ratio[1], new_ne3_ne2_ratio[1], s=1000, marker="*", color=colors[1], label=r"b", edgecolors="black", zorder=5)
+    ax.scatter(new_s4_ne2_ratio[2], new_ne3_ne2_ratio[2], s=1000, marker="*", color=colors[2], label=r"c", edgecolors="black", zorder=4)
+    ax.scatter(new_s4_ne2_ratio[3], new_ne3_ne2_ratio[3], s=1000, marker="^", color=colors[3], label=r"N", edgecolors="black", zorder=3)
+    ax.scatter(new_s4_ne2_ratio[4], new_ne3_ne2_ratio[4], s=1000, marker="v", color=colors[4], label=r"S", edgecolors="black", zorder=2)
+    ax.scatter(eso_s4_ne2_ratio[0], eso_ne3_ne2_ratio[0], s=1000, color=colors[5], label="IR 23128-5919", zorder=1)
 
     # Plot old values
     
@@ -200,7 +248,7 @@ if generate_siv_ne_plot:
     plt.legend(prop={'size': 24})
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1.0))
 
-    plt.savefig("./../diagnostic_plots/lines/siv_ne2_vs_ne3_ne2.pdf", dpi=1200, bbox_inches="tight")
+    plt.savefig("./../diagnostic_plots/lines/siv_ne2_vs_ne3_ne1.pdf", dpi=1200, bbox_inches="tight")
 
 
 if generate_ox_iron_plot:
