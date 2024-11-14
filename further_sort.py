@@ -5,7 +5,7 @@ import numpy as np
 
 line_name = "[NeV]_14"
 line_center = 14.3217
-data = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{line_name}/AMP_fit.dat", format="ipac")  
+data = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{line_name}/fit.dat", format="ipac")  
 print(data)
 
 g1_amps = []

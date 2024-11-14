@@ -11,7 +11,10 @@ from plotparams import PlotParams
 from cubespec import CubeSpec
 from astropy.visualization.wcsaxes import add_scalebar
 import matplotlib.font_manager as fm
+import scipy.special as sp
 
+def gaussian_integral(amplitude, center, sigma, x_1, x_2):
+    return amplitude * (sp.erf((center - x_1)) / (np.sqrt(2) * sigma) - sp.erf((center - x_2)) / (np.sqrt(2) * sigma)) / 2
 
 def render_multicomponent_plot(data, wcs, savefig=False):
     """
@@ -133,26 +136,30 @@ def render_amplitude_plot(data, line_name, wcs, param="G1AMP", savefig=False):
     each spaxel
     """
     
-    # Initialize base aarray
+    # Initialize base array
     base_array = np.zeros((np.max(data["XPIX"]) + 1, np.max(data["YPIX"]) + 1))
+    fluxes = []
     for idx, _ in enumerate(data["XPIX"]):
         pref_idx = param[1]
         gamma = np.abs(data["G"+pref_idx+"SIGMA"][idx]) * 2.355 / data["G"+pref_idx+"CEN"][idx]
         flux = (1 / np.sqrt(np.pi * np.log(2)) * (np.pi * const.c.to('micron/s') / 2) * (data[param][idx] * u.Jy * gamma / (data["G"+pref_idx+"CEN"][idx] * u.micron))).to(u.watt / u.meter ** 2)
         base_array[data["XPIX"][idx]][data["YPIX"][idx]] = flux.value
+        fluxes.append(flux.value)
+    
+    max_flux = np.nanpercentile(fluxes, 99)
     
     if "1" in param:
-        comp_name = r"$A_{1}$"
+        comp_name = r"$F_{1}$"
     if "2" in param:
-        comp_name = r"$A_{2}$"
+        comp_name = r"$F_{2}$"
     if "3" in param:
-        comp_name = r"$A_{3}$"
+        comp_name = r"$F_{3}$"
     
     fig = plt.figure()
     ax = plt.subplot(projection=wcs)
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('plasma')
-    image = ax.imshow(base_array, cmap=cmap, norm=LogNorm(), origin="lower")
+    image = ax.imshow(base_array, cmap=cmap, norm=LogNorm(vmax=max_flux), origin="lower")
     ax.scatter(21, 24, c="white", edgecolors="black", marker="*", s=1000)
     cax = plt.colorbar(image)
     cax.set_label(r"[W/m$^2$]", fontsize=24, rotation=270, labelpad=25)
@@ -337,8 +344,9 @@ line_dict = {"[NeV]": [4, "long", [24.1, 24.5], 24.316],
              "[FeII]": [1, "short", [5.29, 5.37], [5.25, 5.43], 5.3396, [0.01, 0.5, 0.0125, 0.02]]}
 
 
-line_name = "[H_2_S_1]"
-data = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{line_name}/fit.dat", format="ipac")  
+line_name = "[NeII]"
+data = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{line_name}/CEN_SNR_fit.dat", format="ipac")  
+#data = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{line_name}/fit.dat", format="ipac")  
 spec_obj = CubeSpec("./../", "param_files", "IR23128-S_6_single_param.txt", "input_data/IR23128-S/", redshift=0.044601, fit_dirname="IR23128S_AGN6", mode="AGN")
 south_cubes = spec_obj.perform_single_extraction_custom()
 south_data = np.nanmedian(south_cubes[-1].cube_before, axis=0)

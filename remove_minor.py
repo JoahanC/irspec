@@ -40,7 +40,7 @@ def evaluate_spaxel_fit(name, redshift, test_pixel):
                 "[FeII]": [1, "short", [5.29, 5.37], [5.25, 5.43], 5.3396, [0.01, 0.5, 0.0125, 0.02]]}
     
     # Access fit data
-    fitdata = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{name}/fit.dat", format="ipac")  
+    fitdata = ascii.read(f"./../diagnostic_plots/dynamic_multicomponent/{name}/AMP_fit.dat", format="ipac")  
 
     # Access datacube and assemble wavelength and flux values
     datacube = f"./../input_data/IR23128-S/ch{line_dict[name][0]}-{line_dict[name][1]}_s3d.fits"
@@ -116,7 +116,7 @@ def evaluate_spaxel_fit(name, redshift, test_pixel):
         snr = (line_signal + bkg_signal) / np.sqrt(bkg_signal)
         
         # Read out SNR
-        print("Gaussian Component 1")
+        print(f"Gaussian Component 1: {round(g1_cen, 3)}")
         print(f"SNR: {snr}")
         if snr < 5:
             print("Rejecting component.")
@@ -144,7 +144,7 @@ def evaluate_spaxel_fit(name, redshift, test_pixel):
         bkg_signal = np.trapz(bkg_flux, snr_wavelengths)
         snr = (line_signal + bkg_signal) / np.sqrt(bkg_signal)
         
-        print("Gaussian Component 2")
+        print(f"Gaussian Component 2: {round(g2_cen, 3)}")
         print(f"SNR: {snr}")
         if snr < 5:
             print("Rejecting component.")
@@ -172,7 +172,7 @@ def evaluate_spaxel_fit(name, redshift, test_pixel):
         bkg_signal = np.trapz(bkg_flux, snr_wavelengths)
         snr = (line_signal + bkg_signal) / np.sqrt(bkg_signal)
         
-        print("Gaussian Component 3")
+        print(f"Gaussian Component 3: {round(g3_cen, 3)}")
         print(f"SNR: {snr}")
         if snr < 5:
             print("Rejecting component.")
@@ -387,9 +387,9 @@ def remove_insignificant_gaussians(name, snr_cutoff):
     fitparams.write(f"./../diagnostic_plots/dynamic_multicomponent/{name}/SNRCUT_fit.dat", format="ipac", overwrite=True)
 
 # Define emission line parameters and spaxel of interest
-name = "[NeV]_14"
+name = "[NeIII]"
 redshift = 0.044601
-test_pixel = (20, 20) #(Y, X))
+test_pixel = (22, 30) #(Y, X))
 snr_cutoff = 2
 
 #evaluate_spaxel_fit(name, redshift, test_pixel)

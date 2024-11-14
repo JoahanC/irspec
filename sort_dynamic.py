@@ -31,6 +31,7 @@ def sortdata(sorting_method, name):
         g2_sigma = data["G2SIGMA"][idx]
         g3_sigma = data["G3SIGMA"][idx]
         
+        
         if np.isnan(g3_amp):
             if np.isnan(g2_amp):
                 if np.isnan(g1_amp):
@@ -77,7 +78,7 @@ def sortdata(sorting_method, name):
                         g3_sigmas.append(np.nan)
                 
                 if sorting_method == "CEN":
-                    if g1_vel < g2_vel:
+                    if np.abs(g1_vel) < np.abs(g2_vel):
                         g1_amps.append(g1_amp)
                         g2_amps.append(g2_amp)
                         g3_amps.append(np.nan)
@@ -137,8 +138,8 @@ def sortdata(sorting_method, name):
                 g3_sigmas.append(dict_keys[2])
             
             if sorting_method == "CEN":
-                dict_keys = [g1_vel, g2_vel, g3_vel]
-                sort_dict = {g1_vel: [g1_amp, g1_sigma], g2_vel: [g2_amp, g2_sigma], g3_vel: [g3_amp, g3_sigma]}
+                dict_keys = [np.abs(g1_vel), np.abs(g2_vel), np.abs(g3_vel)]
+                sort_dict = {np.abs(g1_vel): [g1_amp, g1_sigma], np.abs(g2_vel): [g2_amp, g2_sigma], np.abs(g3_vel): [g3_amp, g3_sigma]}
                 dict_keys.sort(reverse=True)
                 g1_amps.append(sort_dict[dict_keys[0]][0])
                 g2_amps.append(sort_dict[dict_keys[1]][0])
@@ -166,8 +167,8 @@ def sortdata(sorting_method, name):
         
     best_fit_values = [data["XPIX"], data["YPIX"], g1_amps, g1_vels, g1_sigmas, g2_amps, g2_vels, g2_sigmas, g3_amps, g3_vels, g3_sigmas]
     fitparams = Table(best_fit_values, names=("XPIX", "YPIX", "G1AMP", "G1CEN", "G1SIGMA", "G2AMP", "G2CEN", "G2SIGMA", "G3AMP", "G3CEN", "G3SIGMA"))
-    fitparams.write(f"./../diagnostic_plots/dynamic_multicomponent/{name}/{sorting_method}_fit.dat", format="ipac", overwrite=True)
+    fitparams.write(f"./../diagnostic_plots/dynamic_multicomponent/{name}/{sorting_method}_SNR_fit.dat", format="ipac", overwrite=True)
 
-sorting_method = "CEN"
-name = "[NeV]_14"
+sorting_method = "AMP"
+name = "[NeIII]"
 sortdata(sorting_method, name)

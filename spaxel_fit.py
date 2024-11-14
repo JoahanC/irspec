@@ -450,7 +450,7 @@ def main_routine(core, name, redshift, test_pixel=False, experimental_bkg=False)
     fitparams.write(f"./../diagnostic_plots/dynamic_multicomponent/{name}/fit.dat", format="ipac", overwrite=True)
 
 core = "S"
-name = "[H_2_S_1]"
+name = "[FeII]"
 type = "triple"
 multicomponent = True
 redshift = 0.044601
