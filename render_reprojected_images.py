@@ -1,11 +1,8 @@
-""" 
-This file contains an example for reprojecting HST/Spitzer/JWST images.
-"""
-
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.font_manager as fm
 from matplotlib.patches import Rectangle
+from plotparams import PlotParams
 
 import astropy.units as u
 import numpy as np
@@ -31,10 +28,10 @@ nircam_file1 = "./../archival_data/nircam_images/IR23128/IR23128_f200w.fits"
 nircam_file2 = "./../archival_data/nircam_images/IR23128/IR23128_f356w.fits"
 spitzer_3_file = "./../archival_data/spitzer_images/SPITZER_I1_12313344_0000_7_E8700443_maic.fits"
 
-datacube_north_1 = f"./../input_data/IR23128-N/iras23128-n_ch1-short_s3d.fits"
-datacube_north_4 = f"./../input_data/IR23128-N/iras23128-n_ch4-long_s3d.fits"
-datacube_south_1 = f"./../input_data/IR23128-S/Level3_ch1-short_s3d.fits"
-datacube_south_4 = f"./../input_data/IR23128-S/Level3_ch4-long_s3d.fits"
+datacube_north_1 = f"./../input_data/IR23128-N/ch1-short_s3d.fits"
+datacube_north_4 = f"./../input_data/IR23128-N/ch4-long_s3d.fits"
+datacube_south_1 = f"./../input_data/IR23128-S/ch1-short_s3d.fits"
+datacube_south_4 = f"./../input_data/IR23128-S/ch4-long_s3d.fits"
 
 """
 hdu = fits.open(spitzer_3_file, ext=1)
@@ -49,10 +46,14 @@ plt.grid(color='white', ls='solid')
 plt.xlabel('ra')
 plt.ylabel('dec')
 plt.show()"""
-plt.style.use("dark_background")
+plt.style.use("default")
+
+
+
 
 hdu_ref = fits.open(hst_file1)[1]
 hdu_miri = fits.open(miri_file1)[1]
+hdu_nircam = fits.open(nircam_file1, ext=1)[1]
 hdu_spitzer = fits.open(spitzer_3_file)[0]
 
 hdu_n_ch1 = fits.open(datacube_north_1)[1]
@@ -100,8 +101,8 @@ hdu_test = fits.open("output_file.fits")
 hdu_test2 = fits.open("output_file2.fits")
 #print(repr(hdu_n_ch1_new_header))
 
-"""mrs_n_ch1_array, mrs_n_ch1_footprint = reproject_interp(hdu_test, hdu_ref.header)
-mrs_s_ch1_array, mrs_s_ch1_footprint = reproject_interp(hdu_test2, hdu_ref.header)"""
+mrs_n_ch1_array, mrs_n_ch1_footprint = reproject_interp(hdu_test, hdu_ref.header)
+mrs_s_ch1_array, mrs_s_ch1_footprint = reproject_interp(hdu_test2, hdu_ref.header)
 
 
 gc_distance = 194.99 * u.Mpc
@@ -133,7 +134,13 @@ y_high_mrs_s = 2550
 
 miri_len = x_high_miri - x_low_miri
 mrs_len = 150
+
+
+
+
 miri_array, miri_footprint = reproject_interp(hdu_miri, hdu_ref.header)
+nircam_array, nircam_footprint = reproject_interp(hdu_nircam, hdu_ref.header)
+
 """
 spitzer_array, spitzer_footprint = reproject_interp(hdu_spitzer, hdu_ref.header)
 
@@ -175,7 +182,8 @@ add_scalebar(ax1, scalebar_angle, label="10 kpc", color="white", fontproperties=
 #ax1.legend(fontsize=20)
 plt.savefig("./hst_final_miri_less.pdf", dpi=1200, bbox_inches="tight")
 plt.close()"""
-
+ppram = PlotParams(palatte="light", scaling="presentation")
+plt.rcParams["font.family"] = "Helvetica"
 
 recn = Rectangle((y_high_miri - y_high_mrs_n + 60, x_high_miri - x_high_mrs_n + 20), mrs_len*0.5, mrs_len*0.8, fill=False, angle=30, color="gold", lw=2, label="MRS North")
 recs = Rectangle((y_high_miri - y_high_mrs_s + 120, x_high_miri - x_high_mrs_s - 40), mrs_len*0.5, mrs_len*0.8, fill=False, angle=30, color="lime", lw=2, label="MRS South")
@@ -189,15 +197,15 @@ ax1.coords['ra'].set_axislabel('RA (J2000)', fontsize=22)
 ax1.coords['dec'].set_axislabel('Dec (J2000)', fontsize=22)
 ax1.tick_params(axis='x', labelsize=18)
 ax1.tick_params(axis='y', labelsize=18)
-ax1.set_title('JWST MIRI F770W', loc="right", fontsize=28)
+ax1.set_title('MIRI F770W', loc="right", fontsize=28)
 ax1.add_patch(recn)
 ax1.add_patch(recs)
 ax1.legend(fontsize=20)
 add_scalebar(ax1, scalebar_angle, label="10 kpc", color="white", fontproperties=fontprops)#
 #plt.show()
-plt.savefig("./miri_final_mrs_on.pdf", dpi=1200, bbox_inches="tight")
+plt.savefig("./miri_f700.png", dpi=1200, bbox_inches="tight")
 
-"""gc_distance = 194.99 * u.Mpc
+gc_distance = 194.99 * u.Mpc
 scalebar_length = 1 * u.kpc
 scalebar_angle = (scalebar_length / gc_distance).to(
     u.deg, equivalencies=u.dimensionless_angles()
@@ -211,11 +219,11 @@ ax1.coords['ra'].set_axislabel('RA (J2000)', fontsize=22)
 ax1.coords['dec'].set_axislabel('Dec (J2000)', fontsize=22)
 ax1.tick_params(axis='x', labelsize=18)
 ax1.tick_params(axis='y', labelsize=18)
-ax1.set_title(r'JWST MIRI MRS North', loc="right", fontsize=28)
+ax1.set_title('MRS CH1 North', loc="right", fontsize=28)
 #ax1.add_patch(rec)
 #ax1.legend(fontsize=20)
 add_scalebar(ax1, scalebar_angle, label="1 kpc", color="white", fontproperties=fontprops)
-plt.savefig("./mrs_north.pdf", dpi=1200, bbox_inches="tight")
+plt.savefig("./mrs_north.png", dpi=1200, bbox_inches="tight")
 plt.close()
 
 fig = plt.figure()
@@ -224,12 +232,41 @@ ax1 = plt.subplot(projection=WCS(hdu_ref.header))
 ax1.imshow(np.fliplr(np.flipud(mrs_s_ch1_array[y_low_mrs_s:y_high_mrs_s, x_low_mrs_s:x_high_mrs_s])), origin='lower', norm=LogNorm(20, 200), cmap="plasma")
 ax1.coords['ra'].set_axislabel('RA (J2000)', fontsize=22)
 ax1.coords['dec'].set_axislabel('Dec (J2000)', fontsize=22)
-ax1.tick_params(axis='x', labelsize=18)
-ax1.tick_params(axis='y', labelsize=18)
-ax1.set_title(r'JWST MIRI MRS South', loc="right", fontsize=28)
+ax1.tick_params(axis='x', labelsize=20)
+ax1.tick_params(axis='y', labelsize=20)
+ax1.set_title('MRS CH1 South', loc="right", fontsize=28)
 #ax1.add_patch(rec)
 #ax1.legend(fontsize=20)
 add_scalebar(ax1, scalebar_angle, label="1 kpc", color="white", fontproperties=fontprops)
 #plt.show()
-plt.savefig("./mrs_south.pdf", dpi=1200, bbox_inches="tight")
-plt.close()"""
+plt.savefig("./mrs_south.png", dpi=1200, bbox_inches="tight")
+plt.close()
+
+x_low_nircam = 2050
+x_high_nircam = 2250
+y_low_nircam = 2325
+y_high_nircam = 2525
+
+x_low_nircam = 2000
+x_high_nircam = 2300
+y_low_nircam = 2275
+y_high_nircam = 2575
+
+gc_distance = 194.99 * u.Mpc
+scalebar_length = 10 * u.kpc
+scalebar_angle = (scalebar_length / gc_distance).to(
+    u.deg, equivalencies=u.dimensionless_angles()
+)
+
+fig = plt.figure()
+fig.set_size_inches(10, 10)
+ax = plt.subplot(projection=WCS(hdu_ref.header))
+ax.imshow(np.fliplr(np.flipud(nircam_array[y_low_nircam:y_high_nircam, x_low_nircam:x_high_nircam])), origin='lower', norm=LogNorm(0.5, 1000), cmap="plasma")
+ax.tick_params(axis='x', labelsize=20)
+ax.tick_params(axis='y', labelsize=20)
+ax.set_xlabel("RA (J2000)", fontsize=22)
+ax.set_ylabel("Dec (J2000)", fontsize=22)
+ax.set_title("NIRCAM F200W", loc="right", fontsize=28)
+add_scalebar(ax, scalebar_angle, label="10 kpc", color="white", fontproperties=fontprops)#
+
+plt.savefig("nircam_f200w.png", dpi=1000, bbox_inches='tight')
