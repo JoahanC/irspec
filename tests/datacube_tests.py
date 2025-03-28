@@ -1,0 +1,1 @@
+from irspec.datacube import Datacube
