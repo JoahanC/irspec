@@ -16,7 +16,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import astropy.constants as const
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
 from astropy.visualization.wcsaxes import add_scalebar
 import matplotlib.font_manager as fm
 
@@ -72,6 +72,15 @@ class SpaxelFit:
         self.label = None
     
     
+    def jwst_miri_broadening(self, wavelength):
+        """Estimates the JWST instrumental broadening of the MIRI MRS
+        intrument at a given wavelength (in microns). Returns as a tuple:
+        (FWHM, velocity dispersion)."""
+        fwhm = wavelength / (4603 - 128 * wavelength) / 2.3548
+        vel_disp = self.datacube.fwhm_to_disp(fwhm, wavelength)
+        return fwhm, vel_disp
+    
+    
     def load_fit(self, filepath):
         """Loads a saved instance of SpaxelFit"""
         self.fitparams = ascii.read(filepath, format="ipac")  
@@ -79,10 +88,6 @@ class SpaxelFit:
     
     def _mask_spaxel(self, spaxel):
         """Develops the masks necessary to perform gaussian fitting."""
-        #lower_continuum_region = SpectralRegion(np.min(self.datacube.wvs.value) * self.datacube._wv_unit,
-        #                                        self.line_dict[self.name][2][0] * self.datacube._wv_unit)
-        #upper_continuum_region = SpectralRegion(self.line_dict[self.name][2][1] * self.datacube._wv_unit,
-        #                                        np.max(self.datacube.wvs.value) * self.datacube._wv_unit)
         lower_continuum_region = SpectralRegion(self.line_dict[self.name][2][0] * self.datacube._wv_unit,
                                                 self.line_dict[self.name][3][0] * self.datacube._wv_unit)
         upper_continuum_region = SpectralRegion(self.line_dict[self.name][2][1] * self.datacube._wv_unit,
@@ -107,6 +112,10 @@ class SpaxelFit:
         return line_wavelengths, line_fluxes, spaxel_continuum_fit.flux.value
     
     
+    
+                
+    
+    
     def two_gaussian_fit(self):
         """ 
         A simple fitting routine which fits two gaussian 
@@ -123,8 +132,9 @@ class SpaxelFit:
             for x_pix in tqdm(range(self.datacube.im_shape[0]), leave=False):
                 
                 # Record X and Y pixels
-                best_fit_values[0].append(y_pix)
-                best_fit_values[1].append(x_pix)
+                best_fit_values[0].append(x_pix)
+                best_fit_values[1].append(y_pix)
+                
                 
                 # Test for mode case
                 if self.mode == "spaxels":
@@ -143,29 +153,44 @@ class SpaxelFit:
                 
                 # Process spaxel
                 spaxel_continuum, spaxel_line = self._mask_spaxel(spaxel)
-                line_wavelengths, line_fluxes, _ = self.background_subtraction(spaxel_continuum, spaxel_line)
+                line_wavelengths, line_fluxes, background_flux = self.background_subtraction(spaxel_continuum, spaxel_line)
                 
                 # Estimate line parameters
                 line_center = self.line_dict[self.name][4]
                 center_offset = self.line_dict[self.name][5]
                 center_cutoff = self.line_dict[self.name][6]
-                narrow_sigma = self.line_dict[self.name][7] / 2.3548200
-                broad_sigma = self.line_dict[self.name][8] / 2.3548200
+                minimum_sigma = self.line_dict[self.name][7]
+                narrow_sigma = self.line_dict[self.name][8]
+                broad_sigma = self.line_dict[self.name][9]
+                maximum_sigma = self.line_dict[self.name][10]
+                narrow_broad_sigma = (minimum_sigma + maximum_sigma) / 2
+                minimum_amp = np.sqrt(2*np.pi)*np.max(line_fluxes)*minimum_sigma
                 narrow_amp = np.sqrt(2*np.pi)*np.max(line_fluxes)*narrow_sigma
                 broad_amp = np.sqrt(2*np.pi)*np.max(line_fluxes)*broad_sigma
+                maximum_amp = np.sqrt(2*np.pi)*np.max(line_fluxes)*maximum_sigma * 4
+                narrow_broad_amp = (minimum_amp + maximum_amp) / 2
                 
                 ### Run lmfit fitting routine ###
+                
+                # Single Gaussian
+                single_g1 = GaussianModel(prefix="g1_")
+                single_params = single_g1.guess(line_fluxes, x=line_wavelengths)
+                single_params.update(single_g1.make_params(center=dict(value=line_center, min=line_center-center_offset/10, max=line_center+center_offset/10),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma, max=maximum_sigma),
+                                            amplitude=dict(value=narrow_amp, max=maximum_amp, min=minimum_amp)))
+                single_result = single_g1.fit(line_fluxes, single_params, x=line_wavelengths)
+                single_redchi = single_result.redchi
                 
                 # Narrow center + narrow red
                 double_g1_2 = GaussianModel(prefix="g1_")
                 double_g2_2 = GaussianModel(prefix="g2_")
                 double_params_2 = double_g1_2.guess(line_fluxes, x=line_wavelengths)
-                double_params_2.update(double_g1_2.make_params(center=dict(value=line_center, min=line_center-center_offset, max=line_center+center_offset),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*3, min=narrow_amp/2)))
-                double_params_2.update(double_g2_2.make_params(center=dict(value=line_center+center_offset, min=line_center, max=line_center+center_cutoff),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*2, min=narrow_amp/2)))
+                double_params_2.update(double_g1_2.make_params(center=dict(value=line_center, min=line_center-center_offset/10, max=line_center+center_offset/10),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma/2, max=maximum_sigma),
+                                            amplitude=dict(value=narrow_amp, max=maximum_amp*10, min=minimum_amp)))
+                double_params_2.update(double_g2_2.make_params(center=dict(value=line_center, min=line_center-center_cutoff, max=line_center+center_cutoff),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma, max=narrow_broad_sigma),
+                                            amplitude=dict(value=broad_amp, max=maximum_amp, min=minimum_amp)))
                 double_model_2 = double_g1_2 + double_g2_2
                 double_result_2 = double_model_2.fit(line_fluxes, double_params_2, x=line_wavelengths)
                 
@@ -173,42 +198,47 @@ class SpaxelFit:
                 double_g1_3 = GaussianModel(prefix="g1_")
                 double_g2_3 = GaussianModel(prefix="g2_")
                 double_params_3 = double_g1_3.guess(line_fluxes, x=line_wavelengths)
-                double_params_3.update(double_g1_3.make_params(center=dict(value=line_center, min=line_center-center_offset, max=line_center+center_offset),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*3, min=narrow_amp/2)))
-                double_params_3.update(double_g2_3.make_params(center=dict(value=line_center-center_offset, min=line_center-center_cutoff, max=line_center),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*2, min=narrow_amp/2)))
+                double_params_3.update(double_g1_3.make_params(center=dict(value=line_center, min=line_center-center_offset/10, max=line_center+center_offset/10),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma/2, max=maximum_sigma),
+                                            amplitude=dict(value=narrow_amp, max=maximum_amp*10, min=minimum_amp)))
+                double_params_3.update(double_g2_3.make_params(center=dict(value=line_center-center_offset, max=line_center, min=line_center-center_cutoff),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma, max=narrow_broad_sigma),
+                                            amplitude=dict(value=broad_amp, max=maximum_amp, min=minimum_amp)))
                 double_model_3 = double_g1_3 + double_g2_3
                 double_result_3 = double_model_3.fit(line_fluxes, double_params_3, x=line_wavelengths)
                 
-                # Narrow center + broad red
+                # Narrow center + narrow red
                 double_g1_4 = GaussianModel(prefix="g1_")
                 double_g2_4 = GaussianModel(prefix="g2_")
                 double_params_4 = double_g1_4.guess(line_fluxes, x=line_wavelengths)
-                double_params_4.update(double_g1_4.make_params(center=dict(value=line_center, min=line_center-center_offset, max=line_center+center_offset),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*3, min=narrow_amp/2)))
+                double_params_4.update(double_g1_4.make_params(center=dict(value=line_center, min=line_center-center_offset/10, max=line_center+center_offset/10),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma, max=maximum_sigma),
+                                            amplitude=dict(value=narrow_amp, max=maximum_amp*10, min=minimum_amp)))
                 double_params_4.update(double_g2_4.make_params(center=dict(value=line_center+center_offset, min=line_center, max=line_center+center_cutoff),
-                                            sigma=dict(value=broad_sigma),
-                                            amplitude=dict(value=broad_amp, max=broad_amp*2, min=broad_amp/2)))
+                                            sigma=dict(value=broad_sigma, min=narrow_broad_sigma, max=maximum_sigma),
+                                            amplitude=dict(value=broad_amp, max=maximum_amp*0.5, min=minimum_amp)))
                 double_model_4 = double_g1_4 + double_g2_4
                 double_result_4 = double_model_4.fit(line_fluxes, double_params_4, x=line_wavelengths)
                 
-                # Narrow center + broad blue
+                # Narrow center + narrow blue
                 double_g1_5 = GaussianModel(prefix="g1_")
                 double_g2_5 = GaussianModel(prefix="g2_")
                 double_params_5 = double_g1_5.guess(line_fluxes, x=line_wavelengths)
-                double_params_5.update(double_g1_5.make_params(center=dict(value=line_center, min=line_center-center_offset, max=line_center+center_offset),
-                                            sigma=dict(value=narrow_sigma),
-                                            amplitude=dict(value=narrow_amp, max=narrow_amp*3, min=narrow_amp/2)))
-                double_params_5.update(double_g2_5.make_params(center=dict(value=line_center-center_offset, min=line_center-center_cutoff, max=line_center),
-                                            sigma=dict(value=broad_sigma),
-                                            amplitude=dict(value=broad_amp, max=broad_amp*2, min=broad_amp/2)))
+                double_params_5.update(double_g1_5.make_params(center=dict(value=line_center, min=line_center-center_offset/10, max=line_center+center_offset/10),
+                                            sigma=dict(value=narrow_sigma, min=minimum_sigma, max=maximum_sigma),
+                                            amplitude=dict(value=narrow_amp, max=maximum_amp*10, min=minimum_amp)))
+                double_params_5.update(double_g2_5.make_params(center=dict(value=line_center-center_offset, max=line_center, min=line_center-center_cutoff),
+                                            sigma=dict(value=broad_sigma, min=narrow_broad_sigma, max=maximum_sigma),
+                                            amplitude=dict(value=broad_amp, max=maximum_amp*0.5, min=minimum_amp)))
                 double_model_5 = double_g1_5 + double_g2_5
-                double_result_5 = double_model_5.fit(line_fluxes, double_params_2, x=line_wavelengths)
+                double_result_5 = double_model_5.fit(line_fluxes, double_params_5, x=line_wavelengths)
                 
+    
                 # Record reduced chi squared values
+                try:
+                    single_redchi = single_result.redchi
+                except:
+                    single_redchi = 1e7
                 try:
                     double_redchi_2 = double_result_2.redchi
                 except:
@@ -231,20 +261,46 @@ class SpaxelFit:
                 
                 double_redchi = np.min(double_redchis)
                 double_result = double_results[np.argmin(double_redchis)]
-            
+
+                if single_redchi <= double_redchi:
+                    best_fit_type = "single"
+                else:
+                    best_fit_type = "double"
+                
+                if best_fit_type == "single":
+                    best_result = single_result
+                    best_redchi = single_redchi    
+                if best_fit_type == "double":
+                    best_result = double_result
+                    best_redchi = double_redchi  
+                
+                amplitudes, centers, sigmas = self.validate_snr(best_result, 
+                                                                spaxel_line, 
+                                                                background_flux, 
+                                                                line_wavelengths)
+                
                 best_idx = 2
-                for prefix in prefixes:
+                if len(amplitudes) == 0:
+                    for idx in range(2,13):
+                        best_fit_values[idx].append(np.nan)
+                    continue
+                for idx, amp in enumerate(amplitudes):
+                    best_fit_values[best_idx + idx * 3].append(amp)
+                    best_fit_values[best_idx + idx * 3 + 1].append(centers[idx])
+                    best_fit_values[best_idx + idx * 3 + 2].append(sigmas[idx])
+                last_idx = best_idx + idx * 3 + 2
+                for idx in range(last_idx+1,11):
+                    best_fit_values[idx].append(np.nan)
+                """for prefix in prefixes:
                     for pname in names:
-                        if prefix+pname in double_result.best_values:
-                            best_fit_values[best_idx].append(double_result.best_values[prefix+pname])
+                        if prefix+pname in best_result.best_values:
+                            best_fit_values[best_idx].append(best_result.best_values[prefix+pname])
                             best_idx += 1
                         else:
                             best_fit_values[best_idx].append(np.nan)
-                            best_idx += 1
-                
-                best_fit_values[12].append(2)
-                best_fit_values[11].append(double_redchi)
-                
+                            best_idx += 1"""
+                best_fit_values[11].append(best_redchi)
+                best_fit_values[12].append(len(amplitudes))
                 
                 
                 
@@ -256,12 +312,61 @@ class SpaxelFit:
             self.label = "twogaussian"
     
     
-    def render_spaxel_fit(self, x_pix, y_pix):
-        """Renders the multicomponent gaussian fit for an individual spaxel."""
-        (flux, flux_err, dq) = self.datacube.spaxel_values(x_pix, y_pix)
+    def validate_snr(self, best_result, spaxel_line, background_flux, line_wavelengths):
+        """Ensures that fitted components pass the SNR threshold and returns
+        the array of fitted values."""
+        total_flux, model_components = self.reconstruct_gaussian_fluxes(best_result, 
+                                                                        spaxel_line, 
+                                                                        background_flux, 
+                                                                        line_wavelengths)
+        amplitudes = []
+        centers = []
+        sigmas = []
+        for idx, component in enumerate(model_components):
+            fwhm = best_result.best_values[f"g{idx+1}_sigma"] * 2.3548
+            component_center = best_result.best_values[f"g{idx+1}_center"]
+            line_region = SpectralRegion((component_center - fwhm) * u.Unit("um"),
+                                         (component_center + fwhm) * u.Unit("um"))
+            component_spectrum = Spectrum1D(component * u.Unit("Jy"), spaxel_line.spectral_axis)
+            if snr_derived(component_spectrum, line_region) > 3:
+                amplitudes.append(best_result.best_values[f"g{idx+1}_amplitude"])
+                centers.append(best_result.best_values[f"g{idx+1}_center"])
+                sigmas.append(best_result.best_values[f"g{idx+1}_sigma"])
+        return amplitudes, centers, sigmas
+    
+    
+    def reconstruct_gaussian_fluxes(self, best_result, spaxel_line, background_flux, line_wavelengths):
+        """Regenerates the continuum flux, the total flux, and all of the
+        gaussian component fluxes for an lmfit gaussian decomposition model."""
+        
+        prefixes = ["g1_", "g2_", "g3_"]
+        model_components = []
+        total_flux = np.copy(background_flux)
+        for prefix in prefixes:
+            if prefix+"amplitude" in best_result.best_values:
+                params = Parameters()
+                params.add(name="amplitude", 
+                           value=best_result.best_values[prefix + "amplitude"])
+                params.add(name="center", 
+                           value=best_result.best_values[prefix + "center"])
+                params.add(name="sigma", 
+                           value=best_result.best_values[prefix + "sigma"])
+                model_component = GaussianModel()
+                component_flux = model_component.eval(params=params, x=line_wavelengths)
+                total_flux += component_flux
+                model_components.append(background_flux + component_flux)
+        return total_flux, model_components
+    
+    
+    def reconstruct_spaxel_fluxes(self, x_pix, y_pix):
+        """Regenerates the continuum flux, the total flux, and all of the
+        gaussian component fluxes for a given spaxel using the completed 
+        fitting parameter dictionary."""
+        (flux, flux_err, dq) = self.datacube.spaxel_values(y_pix, x_pix)
         spaxel = Spectrum1D(flux, self.datacube.wvs)
         spaxel_continuum, spaxel_line = self._mask_spaxel(spaxel)
         line_wavelengths, line_fluxes, background_flux = self.background_subtraction(spaxel_continuum, spaxel_line)
+
         # Generate component fluxes and total flux
         model_components = []
         total_flux = np.copy(background_flux)
@@ -275,6 +380,12 @@ class SpaxelFit:
             component_flux = model_component.eval(params=params, x=line_wavelengths)
             total_flux += component_flux
             model_components.append(background_flux + component_flux)
+        return spaxel_line, background_flux, total_flux, model_components
+    
+    
+    def render_spaxel_fit(self, x_pix, y_pix):
+        """Renders the multicomponent gaussian fit for an individual spaxel."""
+        spaxel_line, background_flux, total_flux, model_components = self.reconstruct_spaxel_fluxes(x_pix, y_pix)
         
         # Plot
         fig, ax = plt.subplots()
@@ -329,7 +440,7 @@ class SpaxelFit:
         ax = plt.subplot()
         fig.set_size_inches(10, 8)
         cmap = plt.get_cmap('bone', np.max(base_array) - np.min(base_array) + 1)
-        image = ax.imshow(base_array, cmap=cmap, vmin=np.min(base_array) - 0.5, vmax=np.max(base_array) + 0.5)
+        image = ax.imshow(base_array, cmap=cmap, vmin=np.min(base_array) - 0.5, vmax=np.max(base_array) + 0.5, origin="lower")
         if self.line_dict[self.name][0] == 1:
             ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
         if self.line_dict[self.name][0] == 2:
@@ -462,8 +573,8 @@ class SpaxelFit:
             rel_vel = self.datacube.wv_to_vel(self.fitparams[param][idx], self.line_dict[self.name][4])
             base_array[self.fitparams["XPIX"][idx]][self.fitparams["YPIX"][idx]] = rel_vel.value
             #all_relvels.append(rel_vel)
-
-        
+        max_offset = np.nanmax(np.abs(base_array))
+        print(max_offset)
         #high_percentile = np.nanpercentile(all_relvels, 97.5)
         
         if "1" in param:
@@ -477,7 +588,7 @@ class SpaxelFit:
         ax = plt.subplot()
         fig.set_size_inches(10, 8)
         cmap = plt.get_cmap('RdBu_r')
-        image = ax.imshow(base_array, cmap=cmap, origin="lower")
+        image = ax.imshow(base_array, vmin=-max_offset, vmax=max_offset, cmap=cmap, origin="lower")
         ax.scatter(21, 24, c="white", edgecolors="black", marker="*", s=1000)
         cax = plt.colorbar(image)
         cax.set_label("[km/s]", fontsize=24, rotation=270, labelpad=25)

@@ -95,9 +95,9 @@ class Datacube:
     def spaxel_values(self, x_pix, y_pix):
         """Returns the spaxel flux spectrum, spectrum errors, and 
         spectrum data quality flag at a given (x, y) coordinate."""
-        return ((self.science_data[:, y_pix, x_pix] * self._flux_unit * self.area_sr).to(u.Jy),
-                (self.error_data[:, y_pix, x_pix] * self._flux_unit * self.area_sr).to(u.Jy),
-                self.dq_data[:, y_pix, x_pix])
+        return ((self.science_data[:, x_pix, y_pix] * self._flux_unit * self.area_sr).to(u.Jy),
+                (self.error_data[:, x_pix, y_pix] * self._flux_unit * self.area_sr).to(u.Jy),
+                self.dq_data[:, x_pix, y_pix])
     
     
     def wv_to_idx(self, wv, unit="um"):
@@ -181,6 +181,22 @@ class Datacube:
         return (ref_wavelength * vel_disp * (u.kilometer / u.second) / const.c).decompose()
     
     
+    def fwhm_to_disp(self, fwhm, line_center, unit="um"):
+        """Converts a FWHM to a velocity dispersion."""
+        if not isinstance(fwhm, u.Quantity):
+            fwhm *= u.Unit(unit)
+        if not isinstance(line_center, u.Quantity):
+            line_center *= u.Unit(unit)
+        return (const.c * (fwhm / line_center)).to(u.kilometer / u.second)
+    
+    
+    def disp_to_fwhm(self, disp, line_center, disp_unit="km/s", wv_unit="um"):
+        """Converts a velocity dispersion to a FWHM."""
+        if not isinstance(disp, u.Quantity):
+            disp *= u.Unit(disp_unit)
+        if not isinstance(line_center, u.Quantity):
+            line_center *= u.Unit(wv_unit)
+        return (line_center * disp / const.c).to(u.micron)
     
     
     
