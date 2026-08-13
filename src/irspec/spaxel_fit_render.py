@@ -9,9 +9,17 @@ from astropy.visualization import ZScaleInterval
 from astropy.visualization.wcsaxes import add_scalebar
 import matplotlib.font_manager as fm
 import scipy.special as sp
-from emission_io import read_line_params
+from irspec.emission_io import read_line_params
 
-line_dict = read_line_params()
+# Loaded lazily so importing this module has no side effects.
+_line_dict = None
+
+
+def _get_line_dict():
+    global _line_dict
+    if _line_dict is None:
+        _line_dict = read_line_params()
+    return _line_dict
 
 def gaussian_integral(amplitude, center, sigma, x_1, x_2):
     return amplitude * (sp.erf((center - x_1)) / (np.sqrt(2) * sigma) - sp.erf((center - x_2)) / (np.sqrt(2) * sigma)) / 2
@@ -41,13 +49,13 @@ def render_multicomponent_plot(data, wcs, savefig=False):
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('bone', np.max(base_array) - np.min(base_array) + 1)
     image = ax.imshow(base_array, cmap=cmap, vmin=np.min(base_array) - 0.5, vmax=np.max(base_array) + 0.5)
-    if line_dict[line_name][0] == 1:
+    if _get_line_dict()[line_name][0] == 1:
         ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 2:
+    if _get_line_dict()[line_name][0] == 2:
         ax.scatter(21, 26, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 3:
+    if _get_line_dict()[line_name][0] == 3:
         ax.scatter(21, 25, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 4:
+    if _get_line_dict()[line_name][0] == 4:
         ax.scatter(18, 21, c="white", edgecolors="black", marker="*", s=1000)
     plt.colorbar(image, ticks=np.arange(np.min(base_array), np.max(base_array) + 1))
     ax.set_xlabel("Right Ascension")
@@ -124,13 +132,13 @@ def render_totflux_plot(data, wcs, savefig=False):
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('plasma')
     image = ax.imshow(base_array, cmap=cmap, norm=LogNorm(), origin="lower")
-    if line_dict[line_name][0] == 1:
+    if _get_line_dict()[line_name][0] == 1:
         ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 2:
+    if _get_line_dict()[line_name][0] == 2:
         ax.scatter(21, 26, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 3:
+    if _get_line_dict()[line_name][0] == 3:
         ax.scatter(21, 25, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 4:
+    if _get_line_dict()[line_name][0] == 4:
         ax.scatter(18, 21, c="white", edgecolors="black", marker="*", s=1000)
     cax = plt.colorbar(image)
     cax.set_label(r"[W/m$^2$]", fontsize=24, rotation=270, labelpad=25)
@@ -195,13 +203,13 @@ def render_amplitude_plot(data, line_name, line_center, wcs, output, param="G1AM
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('plasma')
     image = ax.imshow(base_array, cmap=cmap, norm=LogNorm(vmax=max_flux, vmin=1E-19), origin="lower")
-    if line_dict[line_name][0] == 1:
+    if _get_line_dict()[line_name][0] == 1:
         ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 2:
+    if _get_line_dict()[line_name][0] == 2:
         ax.scatter(21, 26, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 3:
+    if _get_line_dict()[line_name][0] == 3:
         ax.scatter(21, 25, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 4:
+    if _get_line_dict()[line_name][0] == 4:
         ax.scatter(18, 21, c="white", edgecolors="black", marker="*", s=1000)
     cax = plt.colorbar(image)
     cax.set_label(r"[W/m$^2$]", fontsize=24, rotation=270, labelpad=25)
@@ -282,13 +290,13 @@ def render_rel_vel_plot(data, line_center, line_name, wcs, output, param="G2CEN"
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('RdBu_r')
     image = ax.imshow(base_array, vmin=-max_bound, vmax=max_bound, cmap=cmap, origin="lower")
-    if line_dict[line_name][0] == 1:
+    if _get_line_dict()[line_name][0] == 1:
         ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 2:
+    if _get_line_dict()[line_name][0] == 2:
         ax.scatter(21, 26, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 3:
+    if _get_line_dict()[line_name][0] == 3:
         ax.scatter(21, 25, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 4:
+    if _get_line_dict()[line_name][0] == 4:
         ax.scatter(18, 21, c="white", edgecolors="black", marker="*", s=1000)
     cax = plt.colorbar(image)
     cax.set_label("[km/s]", fontsize=24, rotation=270, labelpad=25)
@@ -371,13 +379,13 @@ def render_vel_disp_plot(data, line_center, line_name, wcs, output, param="G2SIG
     fig.set_size_inches(10, 8)
     cmap = plt.get_cmap('gist_heat')
     image = ax.imshow(base_array, vmin=min_disp, vmax=max_disp, cmap=cmap, origin="lower")
-    if line_dict[line_name][0] == 1:
+    if _get_line_dict()[line_name][0] == 1:
         ax.scatter(24, 28, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 2:
+    if _get_line_dict()[line_name][0] == 2:
         ax.scatter(20, 27, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 3:
+    if _get_line_dict()[line_name][0] == 3:
         ax.scatter(21, 25, c="white", edgecolors="black", marker="*", s=1000)
-    if line_dict[line_name][0] == 4:
+    if _get_line_dict()[line_name][0] == 4:
         ax.scatter(18, 21, c="white", edgecolors="black", marker="*", s=1000)
     cax = plt.colorbar(image)
     cax.set_label("[km/s]", fontsize=24, rotation=270, labelpad=25)
@@ -467,10 +475,10 @@ for key in keys:
     if "AMP" in key:
         render_amplitude_plot(data, line_name, wcs, param=key, savefig=True)
     if "CEN" in key:
-        render_rel_vel_plot(data, line_dict[line_name][4], line_name, wcs, param=key, savefig=True)
+        render_rel_vel_plot(data, _get_line_dict()[line_name][4], line_name, wcs, param=key, savefig=True)
     if "SIGMA" in key:
-        render_vel_disp_plot(data, line_dict[line_name][4], line_name, wcs, param=key, savefig=True)
+        render_vel_disp_plot(data, _get_line_dict()[line_name][4], line_name, wcs, param=key, savefig=True)
 
-render_vel_disp_rel_vel_scatter(data, line_dict[line_name][4], line_name, wcs, savefig=True)
+render_vel_disp_rel_vel_scatter(data, _get_line_dict()[line_name][4], line_name, wcs, savefig=True)
 render_multicomponent_plot(data, wcs, savefig=True)
 render_totflux_plot(data, wcs, savefig=True)"""

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "irspec"
+version = "0.1.0"
+description = "JWST/ALMA IR spectroscopy analysis of IRAS 23128-5919 (MIRI/MRS + NIRSpec cubes)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Joahan Castaneda Jaimes" }]
+dependencies = [
+    "numpy",
+    "scipy",
+    "astropy",
+    "matplotlib",
+    "specutils",
+    "lmfit",
+    "tqdm",
+    "reproject",
+]
+
+[project.optional-dependencies]
+# CAFE/CRETA are not on PyPI; install manually:
+#   pip install -e /path/to/CAFE-master
+# (CRETA ships inside CAFE-master.) cubespec imports them lazily.
+q3dfit = ["q3dfit>=1.2.0,<2"]
+extras = ["asdf", "photutils", "regions", "astroquery", "pandas"]
+
+[project.scripts]
+irspec-run-cafe = "irspec.cli.run_cafe:main"
+irspec-run-creta = "irspec.cli.run_creta:main"
+irspec-spaxel-map = "irspec.cli.generate_spaxel_map:main"
+irspec-footprints = "irspec.cli.footprints:main"
+irspec-plot-line-maps = "irspec.cli.plot_line_maps:main"
+irspec-plot-pah-maps = "irspec.cli.plot_pah_maps:main"
+irspec-plot-alma = "irspec.cli.plot_alma_continuum:main"
+irspec-spectral-index = "irspec.cli.plot_spectral_index:main"
+irspec-false-color = "irspec.false_color:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/irspec"]
